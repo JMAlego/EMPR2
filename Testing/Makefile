@@ -17,7 +17,7 @@ OBJCOPY=$(ARCH)-objcopy
 # Due to a change in 2012 Linux, we now need to set a user name variable in the
 # Makefile so the output path the make install users is right, this is done as
 # follows
-# USER:=$(shell whoami)
+USER:=$(shell whoami)
 
 SOURCERY=$(PKG)/sourcery-g++-lite-arm-eabi-2010.09.51-i686-1
 GNU_VERSION=4.5.0
@@ -72,6 +72,6 @@ clean:
 # to sync the file systems, so the copy finishes
 install:
 	@echo "Copying " $(EXECNAME) "to the MBED file system"
-	cp $(EXECNAME).bin /media/kmo507/MBED &
+	cp $(EXECNAME).bin /media/$(USER)/MBED/ &
 	sync
 	@echo "Now press the reset button on all MBED file systems"
