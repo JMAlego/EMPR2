@@ -1,16 +1,18 @@
 #include "lpc17xx_gpio.h"
-#include "lpc17xx_uart.h"
 #include "lpc17xx_pinsel.h"
+#include "lpc17xx_uart.h"
+#include "lib/empr_lib_utilities.c"
+#include "lib/empr_lib_lcd.c"
 #include <stdio.h>
-
 #define READ() ((GPIO_ReadValue(0) & 0x20000) == 0x20000)
 
 #define SENDING 0x40040
 #define RECEIVING 0x20000
 #define STOP 0x000000
 
-
+/*
 volatile unsigned long SysTickCnt;
+
 void SysTick_Handler (void);
 void Delay (unsigned long tick);
 
@@ -23,7 +25,7 @@ void Delay (unsigned long tick) {
   uint64_t systickcnt;
   systickcnt = SysTickCnt;
   while ((SysTickCnt - systickcnt) < tick);
-}
+}*/
 
 void EL_SERIAL_Init(void)
 {
@@ -40,6 +42,7 @@ void EL_SERIAL_Init(void)
   PINSEL_ConfigPin(&PinCfg);
 
   UART_CFG_Type UARTCfg;
+  UARTCfg.Baud_rate = 256000;
   UART_FIFO_CFG_Type FIFOCfg;
   UART_ConfigStructInit(&UARTCfg);
   UART_FIFOConfigStructInit(&FIFOCfg);
@@ -58,15 +61,10 @@ size_t EL_SERIAL_SizeOfString(uint8_t string[])
   return length + 1;
 }
 
-void print(uint8_t string[])
+void print(char string[])
 {
-  UART_Send(LPC_UART0, string, EL_SERIAL_SizeOfString(string), BLOCKING);
+  UART_Send(LPC_UART0, (uint8_t *) string, EL_SERIAL_SizeOfString((uint8_t *) string), BLOCKING);
 }
-
-typedef struct Packet{
-  uint8_t type_slot;
-  uint8_t slots[512];
-} Packet;
 
 const int SECOND = 1000000;
 const int MILISECOND = 1000;
@@ -81,22 +79,18 @@ typedef enum MONITOR_STATE{
   END_FRAME=5
 } MONITOR_STATE;
 
-int getFrame(uint8_t * out_type, uint8_t * out_slots){
+int getFrame(uint8_t * out_type, uint8_t out_slots[]){
   int input_state;
   unsigned long start_time;
-  int packet_count = 0;
-  uint8_t slots[512];
-  uint8_t type_slot = 0;
+  uint8_t slots[513];
   MONITOR_STATE state = IDLE;
   uint8_t slot = 0;
   uint8_t break_bit = 0;
   uint8_t end_bits = 0;
-  unsigned long times[11];
   int bit_index = 0;
   unsigned long bit_start_time = 0;
   int slot_count = 0;
   unsigned long slot_start_time = 0;
-  unsigned long mab_end = 0;
   int errors = 0;
   while(1){
     slot = 0;
@@ -124,7 +118,7 @@ int getFrame(uint8_t * out_type, uint8_t * out_slots){
     while(state == BREAK){
       input_state = READ();
       if (input_state == 1){
-        if(SysTickCnt - start_time > MILISECOND*9)
+        if(SysTickCnt - start_time > MILISECOND*8)
           break;
         else if(SysTickCnt - start_time > SECOND){
           print("AAHAHAHAHAHAHH PANIC!\r\n");
@@ -138,17 +132,18 @@ int getFrame(uint8_t * out_type, uint8_t * out_slots){
     if(state == IDLE)
       continue;
     //SLOT STATE
-    state = INITIAL_SLOT;
+    state = SLOT;
     start_time = SysTickCnt;
-    unsigned long inter_slot_time = 0;
     while(state == INITIAL_SLOT || state == SLOT){
       while(slot_count < 513){
         slot = 0;
         bit_index = 0;
         end_bits = 0;
         while(READ() == 1);
-        slot_start_time = SysTickCnt;
-        //while(SysTickCnt - slot_start_time < MICROSECOND*2);
+        //slot_start_time = SysTickCnt;
+        /*if(slot_count == 0){
+          while(SysTickCnt - slot_start_time < MICROSECOND*1);
+        }*/
         while(bit_index < 11){
           bit_start_time = SysTickCnt;
           if(bit_index == 0){
@@ -159,20 +154,21 @@ int getFrame(uint8_t * out_type, uint8_t * out_slots){
             slot |= READ() << (bit_index - 1);
           }
           bit_index++;
-          if(bit_index < 10){
+          if(bit_index < 11){
             while(SysTickCnt - bit_start_time < MICROSECOND*4);
           }
         }
         if(break_bit != 0 || end_bits != 2){
           errors++;
         }
-        if(state == INITIAL_SLOT){
+        /*if(state == INITIAL_SLOT){
           state = SLOT;
           type_slot = slot;
         }else{
           slots[slot_count - 1] = slot;
-        }
-        while(SysTickCnt - slot_start_time < MICROSECOND*4*11 - 3*MICROSECOND);
+        }*/
+        slots[slot_count] = slot;
+        //while(SysTickCnt - slot_start_time < MICROSECOND*4*11 - 3*MICROSECOND);
         slot_count++;
       }
       if(slot_count == 513) state = END_FRAME;
@@ -182,23 +178,23 @@ int getFrame(uint8_t * out_type, uint8_t * out_slots){
     if(state == IDLE)
       continue;
   }
-  int i = 0;
-  while(i < 512){
-    out_slots[i] = slots[i];
+  int i = 1;
+  while(i < 513){
+    out_slots[i-1] = slots[i];
     i++;
   }
-  out_type = type_slot;
+  *out_type = slots[0];
   return errors;
 }
 
 int main(){
-  SysTick_Config(SystemCoreClock/SECOND - 1);
+  SysTick_Config(SystemCoreClock/SECOND - 6);
   //1000000 == second
   //1000 == milisecond
+
   EL_SERIAL_Init();
   GPIO_SetDir(0, SENDING, 1);
   GPIO_SetDir(0, RECEIVING, 0);
-  Packet data;
   print("START\r\n");
   uint8_t slots[512];
   uint8_t type_slot;
@@ -207,7 +203,7 @@ int main(){
   char out_str[256];
   sprintf(out_str, "Errors: %d\r\n", errors);
   print(out_str);
-  sprintf(out_str, "Type Slot: %d\r\n", type_slot);
+  sprintf(out_str, "Type Slot: %x\r\n", type_slot);
   print(out_str);
   while(i <32){
     sprintf(out_str, "slot[%d] = 0x%x\r\n", i, slots[i]);
@@ -233,4 +229,5 @@ int main(){
   sprintf(out_str, "Errors Not: %d\r\n", errors_not);
   print(out_str);
   print("END\r\n");
+  return 0;
 }
