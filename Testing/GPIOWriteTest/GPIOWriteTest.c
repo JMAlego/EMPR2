@@ -2,12 +2,15 @@
 #include "lpc17xx_uart.h"
 #include "lpc17xx_pinsel.h"
 #include <stdio.h>
+#include <lpc17xx_timer.h>
 
 #define SENDING 0x40040
 #define RECEIVING 0x20000
 #define STOP 0x000000
 #define BIT_TIME 3
 
+TIM_MATCHCFG_Type TIM_MatchConfigStruct;
+TIM_TIMERCFG_Type TIM_ConfigStruct;
 volatile unsigned long SysTickCnt;
 volatile uint8_t data[512];
 void SysTick_Handler (void);
@@ -94,7 +97,7 @@ void send_data(){
   GPIO_ClearValue(0,SENDING);
   Delay(BIT_TIME*9);
   GPIO_SetValue(0,SENDING);
-  Delay(BIT_TIME*2);
+  Delay(BIT_TIME*4);
 
   //512 slots
   int c;
@@ -103,22 +106,30 @@ void send_data(){
     //send_slot(data[c]);
     //start bit
     GPIO_ClearValue(0,SENDING);
-    Delay(BIT_TIME);
+    Delay(3);
     for (i = 0; i < 8; i++){
       if (((data[c] << i) & 0x80) == 0x80){
         GPIO_SetValue(0,SENDING);
       } else {
         GPIO_ClearValue(0,SENDING);
       }
-      Delay(BIT_TIME);
+      Delay(2);
     }
     //closing bit
     GPIO_SetValue(0,SENDING);
-    Delay(2*BIT_TIME);
+    Delay(4*BIT_TIME);
   }
 }
 
+void TimerConfig(void){
+  TIM_ConfigStruct.PrescaleOption = TIM_PRESCALE_USVAL;
+  TIM_ConfigStruct.PrescaleValue = 500000;
+  TIM_Init(LPC_TIM0, TIM_TIMER_MODE, &TIM_ConfigStruct);
+}
+
 int main(){
+  TimerConfig();
+
   SysTick_Config(SystemCoreClock/1000000 - 1);
   EL_SERIAL_Init();
   EL_SERIAL_Print("HI");
@@ -127,20 +138,34 @@ int main(){
   GPIO_SetDir(0, RECEIVING, 0);
   int i;
   int j;
-  for(j=0;j<512;j++){
-    data[j]=0xFF;
+  for(j=0;j<256;j++){
+    data[j] = j;
   }
+
+
   while(1){
+    TIM_MatchConfigStruct.MatchChannel = 0;
+    TIM_MatchConfigStruct.ResetOnMatch = TRUE;
+    TIM_MatchConfigStruct.MatchValue = 1;
+    TIM_ConfigMatch(LPC_TIM0,&TIM_MatchConfigStruct);
+
+
     //idle mode
     GPIO_SetValue(0,SENDING);
-    Delay(100);
+
+    //configure data
+    for (i = 0; i < 512; i++){
+      data[i] = data[i % 256];
+    }
+    Delay(1000);
+
     //Break
     GPIO_ClearValue(0,SENDING);
-    Delay(88);
+    Delay(880);
     //MAB
     GPIO_SetValue(0,SENDING);
-    Delay(8);
-    send_data();
+    Delay(100);
+    //send_data();
   }
 
 
