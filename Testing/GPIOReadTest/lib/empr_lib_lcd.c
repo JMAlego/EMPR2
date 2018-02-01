@@ -6,7 +6,7 @@
 Status EL_LCD_Init(void){
   uint8_t data[11] = {0x00,0x34,0x0c,0x06,0x35,0x04,0x10,0x42,0x9f,0x34,0x02};
   Status result = EL_I2C_SendBytes(EMPR_LIB_I2C_ADDRESS_LCD, data, 11);
-  Delay(200);
+  Delay(200000);
   return result;
 }
 
@@ -60,7 +60,7 @@ Status EL_LCD_ClearDisplay(void){
   data[1] = 0x0C;
   if (!EL_I2C_SendBytes(EMPR_LIB_I2C_ADDRESS_LCD, data, 2))
     result = ERROR;
-  Delay(200);
+  Delay(200000);
   return result;
 }
 
