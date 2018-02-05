@@ -62,4 +62,21 @@ char EL_KEYPAD_ReadKey(){
   return return_char;
 }
 
+char EL_KEYPAD_CheckKey(){
+  char current_row = 0;
+  char return_char = '\0';
+  while(return_char == '\0' && current_row < 4){
+    EL_KEYPAD_WriteRow(current_row);
+    char col_result = EL_KEYPAD_ReadCol();
+    if(col_result == 4 && EL_KEYPAD_ReadReset == current_row){
+      EL_KEYPAD_ReadReset = 4;
+    }else if (EL_KEYPAD_ReadReset == 4 && col_result != 4){
+      return_char = EL_KEYPAD_MAP[(int) current_row][(int) col_result];
+      EL_KEYPAD_ReadReset = current_row;
+    }
+    current_row = current_row + 1;
+  }
+  return return_char;
+}
+
 #endif

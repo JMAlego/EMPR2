@@ -189,8 +189,12 @@ int getFrame(uint8_t * out_type, uint8_t out_slots[]){
 }
 
 typedef enum MENU_STATE{
-  MENU_TOP=0,
-  CAPTURED_PACKET=1
+  MENU_TOP,
+  CAPTURED_PACKET,
+  TRIGGER_INPUT_1,
+  TRIGGER_INPUT_2,
+  TRIGGER_INPUT_CAPTURE,
+  TRIGGER_INPUT_LOOP
 } MENU_STATE;
 
 void type_lookup(char * string, uint8_t type_slot){
@@ -224,28 +228,41 @@ int main(){
   GPIO_SetDir(0, RECEIVING, 0);
   print("START\r\n");
   uint8_t slots[512];
+  uint8_t trigger_compare[512];
   uint8_t type_slot;
+  uint8_t trigger_changed = 0;
   int slot_offset = 0;
   char lcd_string[32];
   int errors = 0;
   MENU_STATE current_menu_state = MENU_TOP;
   char menu_key;
+  int channel_size = 0;
+  int channel_address = 0;
   while(1){
     while(current_menu_state == MENU_TOP){
-      strcpy(lcd_string, "MENU");
+      strcpy(lcd_string, "0=MANUAL CAPTURE");
       EL_LCD_ClearDisplay();
       EL_LCD_EncodeASCIIString(lcd_string);
-      EL_LCD_WriteChars(lcd_string, 4);
+      EL_LCD_WriteChars(lcd_string, 16);
+      strcpy(lcd_string, "8=TRIGGER CAP.");
+      EL_LCD_EncodeASCIIString(lcd_string);
+      EL_LCD_WriteAddress(0x40);
+      EL_LCD_WriteChars(lcd_string, 14);
       menu_key = EL_KEYPAD_ReadKey();
-      if(menu_key == '0'){
-        strcpy(lcd_string, "CAPTURING");
-        EL_LCD_ClearDisplay();
-        EL_LCD_EncodeASCIIString(lcd_string);
-        EL_LCD_WriteChars(lcd_string, 9);
-        errors = getFrame(&type_slot, &slots);
-        current_menu_state = CAPTURED_PACKET;
-        slot_offset = 0;
-        print("READ\r\n");
+      switch (menu_key){
+        case '0':
+          strcpy(lcd_string, "CAPTURING");
+          EL_LCD_ClearDisplay();
+          EL_LCD_EncodeASCIIString(lcd_string);
+          EL_LCD_WriteChars(lcd_string, 9);
+          errors = getFrame(&type_slot, &slots);
+          current_menu_state = CAPTURED_PACKET;
+          slot_offset = 0;
+          print("READ\r\n");
+          break;
+        case '8':
+          current_menu_state = TRIGGER_INPUT_1;
+          break;
       }
     }
     while(current_menu_state == CAPTURED_PACKET){
@@ -265,7 +282,7 @@ int main(){
         EL_LCD_EncodeASCIIString(lcd_string);
         EL_LCD_WriteChars(lcd_string, 16);
         EL_LCD_WriteAddress(0x40);
-        sprintf(lcd_string, "0x%02x:0x%02x       ", slots[slot_offset*4+2], slots[slot_offset*4+3]);
+        sprintf(lcd_string, "0x%02x:0x%02x HELP=A ", slots[slot_offset*4+2], slots[slot_offset*4+3]);
         EL_LCD_EncodeASCIIString(lcd_string);
         EL_LCD_WriteChars(lcd_string, 16);
       }
@@ -286,14 +303,161 @@ int main(){
         case '0':
           errors = getFrame(&type_slot, &slots);
           break;
-        case '8':
-          while(menu_key != '0' || menu_key != 'D'){
-            errors = getFrame(&type_slot, &slots);
-            break;
-          }
         case 'D':
           current_menu_state = MENU_TOP;
           break;
+      }
+    }
+    while(current_menu_state == TRIGGER_INPUT_1){
+      EL_LCD_WriteAddress(0x00);
+      strcpy(lcd_string, "Ch. Size A=ENTER");
+      EL_LCD_EncodeASCIIString(lcd_string);
+      EL_LCD_WriteChars(lcd_string, 16);
+      strcpy(lcd_string, "000 Default: 1  ");
+      EL_LCD_WriteAddress(0x40);
+      EL_LCD_EncodeASCIIString(lcd_string);
+      EL_LCD_WriteChars(lcd_string, 16);
+      EL_LCD_WriteAddress(0x40);
+      char input_key = '\0';
+      char input_chars[3] = {0, 0, 0};
+      char key_index = 0;
+      while(current_menu_state == TRIGGER_INPUT_1){
+        input_key = EL_KEYPAD_ReadKey();
+        if(input_key == 'A'){
+          channel_size = input_chars[2] + input_chars[1]*10 + input_chars[0]*100;
+          if(channel_size>512){
+            channel_size = 0;
+          }else{
+            if(channel_size == 0)
+              channel_size = 1;
+            current_menu_state = TRIGGER_INPUT_2;
+            print("HERE!");
+          }
+        }else{
+          input_chars[key_index] = EL_UTIL_ASCIINumberCharacterToNumber(input_key);
+          if(input_chars[key_index]!=10){
+            EL_LCD_WriteAddress(0x40+key_index);
+            EL_LCD_WriteChar(EL_LCD_EncodeASCII(input_key));
+            key_index=(key_index + 1) % 3;
+          }
+        }
+      }
+    }
+    while(current_menu_state == TRIGGER_INPUT_2){
+      EL_LCD_WriteAddress(0x00);
+      strcpy(lcd_string, "Address A=ENTER ");
+      EL_LCD_EncodeASCIIString(lcd_string);
+      EL_LCD_WriteChars(lcd_string, 16);
+      strcpy(lcd_string, "000 Default: 1  ");
+      EL_LCD_WriteAddress(0x40);
+      EL_LCD_EncodeASCIIString(lcd_string);
+      EL_LCD_WriteChars(lcd_string, 16);
+      EL_LCD_WriteAddress(0x40);
+      char input_key = '\0';
+      char input_chars[3] = {0, 0, 0};
+      char key_index = 0;
+      while(current_menu_state == TRIGGER_INPUT_2){
+        input_key = EL_KEYPAD_ReadKey();
+        if(input_key == 'A'){
+          channel_address = input_chars[2] + input_chars[1]*10 + input_chars[0]*100;
+          if(channel_address>512){
+            channel_address = 0;
+          }else{
+            if(channel_address == 0)
+              channel_address = 1;
+            current_menu_state = TRIGGER_INPUT_CAPTURE;
+          }
+        }else{
+          input_chars[key_index] = EL_UTIL_ASCIINumberCharacterToNumber(input_key);
+          if(input_chars[key_index]!=10){
+            EL_LCD_WriteAddress(0x40+key_index);
+            EL_LCD_WriteChar(EL_LCD_EncodeASCII(input_key));
+            key_index=(key_index + 1) % 3;
+          }
+        }
+      }
+    }
+    if(current_menu_state == TRIGGER_INPUT_CAPTURE){
+      EL_LCD_WriteAddress(0x00);
+      strcpy(lcd_string, "WAITING FOR     ");
+      EL_LCD_EncodeASCIIString(lcd_string);
+      EL_LCD_WriteChars(lcd_string, 16);
+      EL_LCD_WriteAddress(0x40);
+      strcpy(lcd_string, "TRIGGER COND.   ");
+      EL_LCD_EncodeASCIIString(lcd_string);
+      EL_LCD_WriteChars(lcd_string, 16);
+      errors = getFrame(&type_slot, &slots);
+      current_menu_state = CAPTURED_PACKET;
+      slot_offset = ((channel_address-1)/4);
+      if(slot_offset>127){
+        slot_offset = 127;
+      }else if(slot_offset < 0){
+        slot_offset = 0;
+      }
+      print("READ\r\n");
+      current_menu_state = TRIGGER_INPUT_LOOP;
+      trigger_changed = 1;
+      print("STATE = TRIGGER_INPUT_LOOP\r\n");
+    }
+    while(current_menu_state == TRIGGER_INPUT_LOOP){
+      if(trigger_changed){
+        if (slot_offset == -1){
+          EL_LCD_WriteAddress(0x00);
+          sprintf(lcd_string, "Type Slot: 0x%02x ", type_slot);
+          EL_LCD_EncodeASCIIString(lcd_string);
+          EL_LCD_WriteChars(lcd_string, 16);
+          EL_LCD_WriteAddress(0x40);
+          type_lookup(&lcd_string, type_slot);
+          EL_LCD_EncodeASCIIString(lcd_string);
+          EL_LCD_WriteChars(lcd_string, 16);
+        }else{
+          EL_LCD_WriteAddress(0x00);
+          sprintf(lcd_string, "0x%02x:0x%02x    %03d", slots[slot_offset*4], slots[slot_offset*4+1], slot_offset*4 + 1);
+          EL_LCD_EncodeASCIIString(lcd_string);
+          EL_LCD_WriteChars(lcd_string, 16);
+          EL_LCD_WriteAddress(0x40);
+          sprintf(lcd_string, "0x%02x:0x%02x MENU=A ", slots[slot_offset*4+2], slots[slot_offset*4+3]);
+          EL_LCD_EncodeASCIIString(lcd_string);
+          EL_LCD_WriteChars(lcd_string, 16);
+        }
+      }
+      menu_key = EL_KEYPAD_CheckKey();
+      switch (menu_key) {
+        case '#':
+          slot_offset++;
+          if(slot_offset == 128){
+            slot_offset = -1;
+          }
+          trigger_changed = 1;
+          break;
+        case '*':
+          slot_offset--;
+          if(slot_offset == -2){
+            slot_offset = 127;
+          }
+          trigger_changed = 1;
+          break;
+        case '0':
+          errors = getFrame(&type_slot, &slots);
+          trigger_changed = 1;
+          break;
+        case 'D':
+          current_menu_state = MENU_TOP;
+          break;
+      }
+      errors = getFrame(&type_slot, &trigger_compare);
+      int compare_index = (channel_address-1) % 512;
+      while(compare_index < channel_address+channel_size-1){
+        if(trigger_compare[compare_index] != slots[compare_index]){
+          int copy_index = 0;
+          while(copy_index < 512){
+            slots[copy_index] = trigger_compare[copy_index];
+            copy_index++;
+          }
+          trigger_changed = 1;
+          break;
+        }
+        compare_index = (compare_index + 1) % 512;
       }
     }
   }

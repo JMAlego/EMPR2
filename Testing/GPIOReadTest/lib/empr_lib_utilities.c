@@ -15,7 +15,9 @@ void Delay (unsigned long tick) {
 
 uint8_t EL_UTIL_ASCIINumberCharacterToNumber(uint8_t numchar)
 {
-  if (numchar == '1')
+  if (numchar == '0')
+    return 0;
+  else if (numchar == '1')
     return 1;
   else if (numchar == '2')
     return 2;
@@ -33,7 +35,7 @@ uint8_t EL_UTIL_ASCIINumberCharacterToNumber(uint8_t numchar)
     return 8;
   else if (numchar == '9')
     return 9;
-  return 0;
+  return 10;
 }
 
 uint32_t EL_UTIL_StringToUint32(uint8_t *string)
