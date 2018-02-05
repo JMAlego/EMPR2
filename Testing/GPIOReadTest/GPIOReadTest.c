@@ -286,6 +286,11 @@ int main(){
         case '0':
           errors = getFrame(&type_slot, &slots);
           break;
+        case '8':
+          while(menu_key != '0' || menu_key != 'D'){
+            errors = getFrame(&type_slot, &slots);
+            break;
+          }
         case 'D':
           current_menu_state = MENU_TOP;
           break;
