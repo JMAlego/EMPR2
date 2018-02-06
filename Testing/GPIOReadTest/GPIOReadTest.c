@@ -194,7 +194,8 @@ typedef enum MENU_STATE{
   TRIGGER_INPUT_1,
   TRIGGER_INPUT_2,
   TRIGGER_INPUT_CAPTURE,
-  TRIGGER_INPUT_LOOP
+  TRIGGER_INPUT_LOOP,
+  DISPLAY_MODE
 } MENU_STATE;
 
 void type_lookup(char * string, uint8_t type_slot){
@@ -262,6 +263,9 @@ int main(){
           break;
         case '8':
           current_menu_state = TRIGGER_INPUT_1;
+          break;
+        case '5':
+          current_menu_state = DISPLAY_MODE;
           break;
       }
     }
@@ -458,6 +462,24 @@ int main(){
           break;
         }
         compare_index = (compare_index + 1) % 512;
+      }
+    }
+    while(current_menu_state == DISPLAY_MODE){
+      errors = getFrame(&type_slot, &slots);
+      uint8_t output_buffer[1027];
+      int output_index = 0;
+      output_buffer[0] = '!';
+      while(output_index < 512){
+        output_buffer[1 + output_index*2] = EL_UTIL_IntToHex(slots[output_index]/16);
+        output_buffer[2 + output_index*2] = EL_UTIL_IntToHex(slots[output_index]%16);
+        output_index++;
+      }
+      output_buffer[1025] = '\n';
+      output_buffer[1026] = '\0';
+      print(output_buffer);
+      menu_key = EL_KEYPAD_CheckKey();
+      if(menu_key == 'D'){
+        current_menu_state = MENU_TOP;
       }
     }
   }

@@ -38,6 +38,43 @@ uint8_t EL_UTIL_ASCIINumberCharacterToNumber(uint8_t numchar)
   return 10;
 }
 
+uint8_t EL_UTIL_IntToHex(uint8_t numchar)
+{
+  if (numchar == 0)
+    return '0';
+  else if (numchar == 1)
+    return '1';
+  else if (numchar == 2)
+    return '2';
+  else if (numchar == 3)
+    return '3';
+  else if (numchar == 4)
+    return '4';
+  else if (numchar == 5)
+    return '5';
+  else if (numchar == 6)
+    return '6';
+  else if (numchar == 7)
+    return '7';
+  else if (numchar == 8)
+    return '8';
+  else if (numchar == 9)
+    return '9';
+  else if (numchar == 10)
+    return 'A';
+  else if (numchar == 11)
+    return 'B';
+  else if (numchar == 12)
+    return 'C';
+  else if (numchar == 13)
+    return 'D';
+  else if (numchar == 14)
+    return 'E';
+  else if (numchar == 15)
+    return 'F';
+  return '0';
+}
+
 uint32_t EL_UTIL_StringToUint32(uint8_t *string)
 {
   size_t count = 0;
