@@ -1,6 +1,7 @@
 #include "lpc17xx_gpio.h"
 #include "lpc17xx_uart.h"
 #include "lpc17xx_pinsel.h"
+
 #include <stdio.h>
 #include <lpc17xx_timer.h>
 
@@ -27,6 +28,38 @@ void Delay (unsigned long tick) {
   while ((SysTickCnt - systickcnt) < tick);
 }
 
+void Init(void){
+
+  //Initialise UART (3 parts)
+  // 1/3: Init pins
+  PINSEL_CFG_Type PinCfg;
+  PinCfg.Funcnum = 1;
+  PinCfg.OpenDrain = 0;
+  PinCfg.Pinmode = 0;
+  PinCfg.Portnum = 0;
+  PinCfg.Pinnum = 15;
+  PINSEL_ConfigPin(&PinCfg);
+
+  // 2/3: Init UART
+  UART_CFG_Type UartCfg;
+  UartCfg.Baud_rate = 250000; //4 us = 1 bit, 250000 bps
+  UartCfg.Databits = UART_DATABIT_8; //8 data bits
+  UartCfg.Stopbits = UART_STOPBIT_2; //2 stop bits
+  UartCfg.Parity = UART_PARITY_NONE; //1 start bit
+  UART_Init(LPC_UART1, &UartCfg);
+
+  //Enable TxD pin
+  UART_TxCmd(LPC_UART1, ENABLE);
+
+  // 3/3: Init UART FIFO
+  UART_FIFO_CFG_Type FIFOCfg;
+  UART_FIFOConfigStructInit(&FIFOCfg); //default configuration
+  UART_FIFOConfig(LPC_UART1, &FIFOCfg);
+
+}
+
+
+
 void init_data(){
 
 }
@@ -34,7 +67,7 @@ void init_data(){
 void save_data(){
 
 }
-
+/*
 void EL_SERIAL_Init(void)
 {
   PINSEL_CFG_Type PinCfg;
@@ -60,6 +93,7 @@ void EL_SERIAL_Init(void)
   UART_TxCmd(LPC_UART0, ENABLE);
 }
 
+
 size_t EL_SERIAL_SizeOfString(uint8_t string[])
 {
   size_t length = 0;
@@ -72,7 +106,7 @@ void EL_SERIAL_Print(uint8_t string[])
 {
   UART_Send(LPC_UART0, string, EL_SERIAL_SizeOfString(string), BLOCKING);
 }
-
+*/
 
 /*void send_slot(uint8_t byte){
   //start bit
@@ -92,7 +126,18 @@ void EL_SERIAL_Print(uint8_t string[])
   Delay(2*BIT_TIME);
 }*/
 
-void send_data(){
+//sends one whole block of data.
+void send_data_UART(void){
+  //First slot
+  UART_SendByte(LPC_UART1, 0x00);
+
+  UART_Send(LPC_UART1, &data, 512, BLOCKING); //BLOCKING or NONE_BLOCKING ?
+
+}
+
+void send_data_GPIO(void){
+  //MAB: prepare data ahead of time
+  // -> no data to be prepared?
   //mode slot
   GPIO_ClearValue(0,SENDING);
   Delay(BIT_TIME*9);
@@ -101,20 +146,23 @@ void send_data(){
 
   //512 slots
   int c;
-  int i;
   for (c = 0; c < 512; c++){
-    //send_slot(data[c]);
+    // MTBF: prepare data ahead of time
+    uint8_t register byte = data[c];
+
     //start bit
     GPIO_ClearValue(0,SENDING);
-    Delay(3);
-    for (i = 0; i < 8; i++){
-      if (((data[c] << i) & 0x80) == 0x80){
-        GPIO_SetValue(0,SENDING);
-      } else {
-        GPIO_ClearValue(0,SENDING);
-      }
-      Delay(2);
-    }
+    Delay(4);
+    // "for-loop" is hard-coded to maximize efficiency.
+    if (byte & 0x80) GPIO_SetValue(0, SENDING); else GPIO_ClearValue(0, SENDING); Delay(4);
+    if (byte & 0x40) GPIO_SetValue(0, SENDING); else GPIO_ClearValue(0, SENDING); Delay(4);
+    if (byte & 0x20) GPIO_SetValue(0, SENDING); else GPIO_ClearValue(0, SENDING); Delay(4);
+    if (byte & 0x10) GPIO_SetValue(0, SENDING); else GPIO_ClearValue(0, SENDING); Delay(4);
+    if (byte & 0x08) GPIO_SetValue(0, SENDING); else GPIO_ClearValue(0, SENDING); Delay(4);
+    if (byte & 0x04) GPIO_SetValue(0, SENDING); else GPIO_ClearValue(0, SENDING); Delay(4);
+    if (byte & 0x02) GPIO_SetValue(0, SENDING); else GPIO_ClearValue(0, SENDING); Delay(4);
+    if (byte & 0x01) GPIO_SetValue(0, SENDING); else GPIO_ClearValue(0, SENDING); Delay(4);
+
     //closing bit
     GPIO_SetValue(0,SENDING);
     Delay(4*BIT_TIME);
@@ -131,32 +179,40 @@ int main(){
   TimerConfig();
 
   SysTick_Config(SystemCoreClock/1000000 - 1);
-  EL_SERIAL_Init();
-  EL_SERIAL_Print("HI");
-  static unsigned int DMXDATA[11] = {STOP, 0xF0000, 0xF0000, 0x30000, STOP, STOP, STOP, STOP, STOP, STOP};
+
+  //EL_SERIAL_Print("HI");
+  //EL_SERIAL_Init();
+
+  //static unsigned int DMXDATA[11] = {STOP, 0xF0000, 0xF0000, 0x30000, STOP, STOP, STOP, STOP, STOP, STOP};
+
+
   GPIO_SetDir(0, SENDING, 1);
   GPIO_SetDir(0, RECEIVING, 0);
+
   int i;
-  int j;
-  for(j=0;j<256;j++){
-    data[j] = j;
+  for (i = 0; i < 512; i++){
+    data[i] = 0x01; // bits arrive in backwards order because endianness
   }
 
 
+  Init(); //Initialise UART
+  /*
   while(1){
+    UART_SendByte(LPC_UART1, 0x01);
+  }
+  */
+  //Main loop
+  while(1){
+    /*
     TIM_MatchConfigStruct.MatchChannel = 0;
     TIM_MatchConfigStruct.ResetOnMatch = TRUE;
     TIM_MatchConfigStruct.MatchValue = 1;
     TIM_ConfigMatch(LPC_TIM0,&TIM_MatchConfigStruct);
+    */
 
 
-    //idle mode
+    //idle mode [set data here]
     GPIO_SetValue(0,SENDING);
-
-    //configure data
-    for (i = 0; i < 512; i++){
-      data[i] = data[i % 256];
-    }
     Delay(1000);
 
     //Break
@@ -165,7 +221,9 @@ int main(){
     //MAB
     GPIO_SetValue(0,SENDING);
     Delay(100);
-    //send_data();
+    //send_data_GPIO();
+    send_data_UART();
+
   }
 
 
