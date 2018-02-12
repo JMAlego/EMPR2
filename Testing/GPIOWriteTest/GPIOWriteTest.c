@@ -1,7 +1,7 @@
 #include "lpc17xx_gpio.h"
 #include "lpc17xx_uart.h"
 #include "lpc17xx_pinsel.h"
-
+#include "lpc17xx_i2c.h"
 #include <stdio.h>
 #include <lpc17xx_timer.h>
 
@@ -9,6 +9,12 @@
 #define RECEIVING 0x20000
 #define STOP 0x000000
 #define BIT_TIME 3
+#define LOW 1
+#define HIGH 0
+
+const char BUFF_FF[1] = {0xFF};
+const char BUFF_COL[4] = {0x7F,0xBF,0xDF,0xEF};
+
 
 TIM_MATCHCFG_Type TIM_MatchConfigStruct;
 TIM_TIMERCFG_Type TIM_ConfigStruct;
@@ -16,7 +22,6 @@ volatile unsigned long SysTickCnt;
 volatile uint8_t data[512];
 void SysTick_Handler (void);
 void Delay (unsigned long tick);
-
 
 void SysTick_Handler (void) {
   SysTickCnt++;
@@ -28,25 +33,38 @@ void Delay (unsigned long tick) {
   while ((SysTickCnt - systickcnt) < tick);
 }
 
+//based on UART_ForceBreak from library
+void Break(LPC_UART_TypeDef* UARTx, int high) {
+  //CHECK_PARAM(PARAM_UARTx(UARTx));
+  if (high){
+    if (((LPC_UART1_TypeDef *)UARTx) == LPC_UART1)
+      {
+        ((LPC_UART1_TypeDef *)UARTx)->LCR |= UART_LCR_BREAK_EN;
+      }
+      else
+      {
+        UARTx->LCR |= UART_LCR_BREAK_EN;
+      }
+    } else {
+      if (((LPC_UART1_TypeDef *)UARTx) == LPC_UART1)
+        {
+          ((LPC_UART1_TypeDef *)UARTx)->LCR &= ~UART_LCR_BREAK_EN;
+        }
+        else
+        {
+          UARTx->LCR &= ~UART_LCR_BREAK_EN;
+        }
+    }
+}
+
 void Init(void){
 
   //Initialise UART (3 parts)
   // 1/3: Init pins
-  PINSEL_CFG_Type PinCfg;
-  PinCfg.Funcnum = 1;
-  PinCfg.OpenDrain = 0;
-  PinCfg.Pinmode = 0;
-  PinCfg.Portnum = 0;
-  PinCfg.Pinnum = 15;
-  PINSEL_ConfigPin(&PinCfg);
+  PinCFG_Init(1);
 
   // 2/3: Init UART
-  UART_CFG_Type UartCfg;
-  UartCfg.Baud_rate = 250000; //4 us = 1 bit, 250000 bps
-  UartCfg.Databits = UART_DATABIT_8; //8 data bits
-  UartCfg.Stopbits = UART_STOPBIT_2; //2 stop bits
-  UartCfg.Parity = UART_PARITY_NONE; //1 start bit
-  UART_Init(LPC_UART1, &UartCfg);
+  UART_Init2();
 
   //Enable TxD pin
   UART_TxCmd(LPC_UART1, ENABLE);
@@ -58,7 +76,33 @@ void Init(void){
 
 }
 
+void PinCFG_Init(int funcnum){
 
+  PINSEL_CFG_Type PinCfg;
+  PinCfg.Funcnum = funcnum;
+  PinCfg.OpenDrain = 0;
+  PinCfg.Pinmode = 0;
+  PinCfg.Portnum = 0;
+  PinCfg.Pinnum = 15;
+  PINSEL_ConfigPin(&PinCfg);
+}
+
+void UART_Init2(void){
+  UART_CFG_Type UartCfg;
+  UartCfg.Baud_rate = 250000; //4 us = 1 bit, 250000 bps
+  UartCfg.Databits = UART_DATABIT_8; //8 data bits
+  UartCfg.Stopbits = UART_STOPBIT_2; //2 stop bits
+  UartCfg.Parity = UART_PARITY_NONE; //1 start bit
+  UART_Init(LPC_UART1, &UartCfg);
+}
+
+void Break_Signal(void){
+
+
+
+  UART_Init2();
+  return;
+}
 
 void init_data(){
 
@@ -175,56 +219,127 @@ void TimerConfig(void){
   TIM_Init(LPC_TIM0, TIM_TIMER_MODE, &TIM_ConfigStruct);
 }
 
+
+
+char get_keypad_press(){
+  char read_buff[1];
+  write_i2c(BUFF_FF,1, 0x21);
+  int col = 0;
+  for (col = 0; col < 4; col++){
+    write_i2c(&BUFF_COL[col],1,0x21);
+    read_i2c(read_buff, 1, 0x21);
+    //save the read buff value when pressed (!=0x0F)
+    if (read_buff[0] & 0x0F){
+        return read_buff[0];
+    }
+  }
+  return 0x0F;
+}
+
+void read_i2c(char* buffer, int length, int address){
+  I2C_M_SETUP_Type setup;
+
+  setup.sl_addr7bit = address;
+  setup.tx_data = NULL;
+  setup.tx_length = 0;
+  setup.rx_data = buffer;
+  setup.rx_length = length;
+  setup.retransmissions_max = 0;
+
+  I2C_MasterTransferData(LPC_I2C1, &setup, I2C_TRANSFER_POLLING);
+}
+
+void write_i2c(char* buffer, int length, int address){
+  I2C_M_SETUP_Type setup;
+
+  setup.sl_addr7bit = address;
+  setup.tx_data = buffer;
+  setup.tx_length = length;
+  setup.rx_data = NULL;
+  setup.rx_length = 0;
+  setup.retransmissions_max = 0;
+
+  I2C_MasterTransferData(LPC_I2C1, &setup, I2C_TRANSFER_POLLING);
+}
+
+void init_I2C(void){
+  //configure mbed pins to work as I2C pins.
+  PINSEL_CFG_Type pincfg1;
+  pincfg1.Funcnum = 3;
+  pincfg1.OpenDrain = 0;
+  pincfg1.Pinmode = 0;
+  pincfg1.Pinnum = 0;
+
+  pincfg1.Portnum = 0;
+
+  PINSEL_CFG_Type pincfg2;
+  pincfg2.Funcnum = 3;
+  pincfg2.OpenDrain = 0;
+  pincfg2.Pinmode = 0;
+  pincfg2.Pinnum = 1;
+  pincfg2.Portnum = 0;
+  PINSEL_ConfigPin(&pincfg1);
+  PINSEL_ConfigPin(&pincfg2);
+
+  //Set the I2C controller clock rate (100kbits/s)
+  I2C_Init(LPC_I2C1, 100000);
+
+  //Enable I2C bus controller
+  I2C_Cmd(LPC_I2C1, ENABLE);
+}
+
 int main(){
   TimerConfig();
-
   SysTick_Config(SystemCoreClock/1000000 - 1);
 
-  //EL_SERIAL_Print("HI");
-  //EL_SERIAL_Init();
-
-  //static unsigned int DMXDATA[11] = {STOP, 0xF0000, 0xF0000, 0x30000, STOP, STOP, STOP, STOP, STOP, STOP};
-
-
-  GPIO_SetDir(0, SENDING, 1);
-  GPIO_SetDir(0, RECEIVING, 0);
 
   int i;
   for (i = 0; i < 512; i++){
-    data[i] = 0x01; // bits arrive in backwards order because endianness
+    data[i] = 0xFF; // bits arrive in backwards order because endianness
   }
 
+  char read;
+  char read_buff[0];
+  Init();
 
-  Init(); //Initialise UART
-  /*
+/*test for keypad press stuff*/
   while(1){
-    UART_SendByte(LPC_UART1, 0x01);
-  }
-  */
-  //Main loop
-  while(1){
-    /*
-    TIM_MatchConfigStruct.MatchChannel = 0;
-    TIM_MatchConfigStruct.ResetOnMatch = TRUE;
-    TIM_MatchConfigStruct.MatchValue = 1;
-    TIM_ConfigMatch(LPC_TIM0,&TIM_MatchConfigStruct);
-    */
-
-
-    //idle mode [set data here]
-    GPIO_SetValue(0,SENDING);
-    Delay(1000);
-
-    //Break
-    GPIO_ClearValue(0,SENDING);
-    Delay(880);
-    //MAB
-    GPIO_SetValue(0,SENDING);
-    Delay(100);
-    //send_data_GPIO();
+    write_i2c(BUFF_FF,1, 0x21);
+    for (i = 0; i < 512; i++){
+      write_i2c(&BUFF_COL[i % 4],1,0x21);
+      read_i2c(read_buff, 1, 0x21);
+      data[i] = read_buff[0];
+    }
     send_data_UART();
-
   }
 
+  /*
+    //Main loop
+  while(1){
 
+    //MTBP
+    Break(LPC_UART1, HIGH);
+
+
+    //Customize data! Yay! XD \(^o^)/ 8==D~
+
+    read = get_keypad_press();//translate keypad press to send send data
+    if (read == 0x00){
+      for (i = 0; i < 512; i++){
+        data[i] = 0x00; // bits arrive in backwards order because endianness
+      }
+    } else {
+      for (i = 0; i < 512; i++){
+        data[i] = 0xFF; // bits arrive in backwards order because endianness
+      }
+    }
+    //BREAK
+    Break(LPC_UART1, LOW);
+    Delay(88);
+    //MAB
+    Break(LPC_UART1, HIGH);
+    Delay(8);
+    //Send Data
+    send_data_UART();
+  }*/
 }
