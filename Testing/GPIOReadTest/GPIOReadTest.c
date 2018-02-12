@@ -266,6 +266,14 @@ int main(){
           break;
         case '5':
           current_menu_state = DISPLAY_MODE;
+          strcpy(lcd_string, "DISPLAY MODE    ");
+          EL_LCD_WriteAddress(0x00);
+          EL_LCD_EncodeASCIIString(lcd_string);
+          EL_LCD_WriteChars(lcd_string, 16);
+          strcpy(lcd_string, "HOLD D TO EXIT  ");
+          EL_LCD_EncodeASCIIString(lcd_string);
+          EL_LCD_WriteAddress(0x40);
+          EL_LCD_WriteChars(lcd_string, 16);
           break;
       }
     }
@@ -469,13 +477,42 @@ int main(){
       uint8_t output_buffer[1027];
       int output_index = 0;
       output_buffer[0] = '!';
+      uint8_t prev = 0;
+      uint8_t prev_count = 0;
+      unsigned long long output_buffer_index = 1;
       while(output_index < 512){
-        output_buffer[1 + output_index*2] = EL_UTIL_IntToHex(slots[output_index]/16);
-        output_buffer[2 + output_index*2] = EL_UTIL_IntToHex(slots[output_index]%16);
+        if(prev == slots[output_index] && prev_count < 255){
+          prev_count++;
+        }else{
+          if(prev_count > 0){
+            output_buffer[output_buffer_index] = 'X';
+            output_buffer_index++;
+            output_buffer[output_buffer_index] = EL_UTIL_IntToHex(prev_count/16);
+            output_buffer_index++;
+            output_buffer[output_buffer_index] = EL_UTIL_IntToHex(prev_count%16);
+            output_buffer_index++;
+            prev_count = 0;
+          }
+          output_buffer[output_buffer_index] = EL_UTIL_IntToHex(slots[output_index]/16);
+          output_buffer_index++;
+          output_buffer[output_buffer_index] = EL_UTIL_IntToHex(slots[output_index]%16);
+          output_buffer_index++;
+          prev = slots[output_index];
+        }
         output_index++;
       }
-      output_buffer[1025] = '\n';
-      output_buffer[1026] = '\0';
+      if(prev_count > 0){
+        output_buffer[output_buffer_index] = 'X';
+        output_buffer_index++;
+        output_buffer[output_buffer_index] = EL_UTIL_IntToHex(prev_count/16);
+        output_buffer_index++;
+        output_buffer[output_buffer_index] = EL_UTIL_IntToHex(prev_count%16);
+        output_buffer_index++;
+        prev_count = 0;
+      }
+      output_buffer[output_buffer_index] = '\n';
+      output_buffer_index++;
+      output_buffer[output_buffer_index] = '\0';
       print(output_buffer);
       menu_key = EL_KEYPAD_CheckKey();
       if(menu_key == 'D'){
