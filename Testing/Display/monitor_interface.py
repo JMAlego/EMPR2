@@ -20,40 +20,40 @@ class MonitorInterface(object):
             self.buffer += self.tty_handle.read(64).decode("ascii").replace("\n","").replace("\0","")
 
             exclamation_index = self.buffer.index("!") if "!" in self.buffer else -1
-            if("!" in self.buffer and exclamation_index != 0):
+            if("!" in self.buffer and exclamation_index > 0):
                 self.buffer = self.buffer[exclamation_index:]
 
             exclamation_count = self.buffer.count("!")
-            if(exclamation_count > 1):
+            while(exclamation_count > 1):
                 second_exclamation_index = self.buffer[1:].index("!") + 1
                 packet_data = self.buffer[1:second_exclamation_index][:1024]
                 self.buffer = self.buffer[second_exclamation_index:]
                 last_value = 0
                 packet_len = len(packet_data)
                 packet = []
-                print(packet_data)
                 while packet_len > 0:
                     if packet_data[0] == "X":
-                        run_length = int(packet_data[1:3], 16)
+                        try:
+                            run_length = int(packet_data[1:3], 16)
+                        except Exception:
+                            continue
                         packet_data = packet_data[3:]
                         packet += [last_value]*run_length
                         packet_len -= 3
-                    elif packet_data[0] == "\n":
-                        packet_data = packet_data[1:]
-                        packet_len -= 1
                     else:
-                        slot_value = int(packet_data[:2], 16)
+                        try:
+                            slot_value = int(packet_data[:2], 16)
+                        except Exception:
+                            continue
                         packet.append(slot_value)
                         last_value = slot_value
                         packet_data = packet_data[2:]
                         packet_len -= 2
-                    print(packet_data)
                 if len(packet) != 512:
-                    print("Warning: incorrect packet length")
-                    sys.exit(1)
-
+                    continue
                 self.packets.append(packet)
                 self.buffer_semaphore.release()
+                exclamation_count = self.buffer.count("!")
 
         self.buffer = ""
 

@@ -3,12 +3,12 @@
 from monitor_interface import MonitorInterface
 from user_interface import DisplayUI
 from threading import Thread, Semaphore
+from multiprocessing import Process, Array
 
 class Display(object):
     def __init__(self):
         self.ui = DisplayUI()
-        self.ui.connect("delete-event", self.stop)
-        self.ui_thread = Thread(target=lambda: DisplayUI.create_ui(self.ui))
+        self.ui_thread = Process(target=lambda: DisplayUI.create_ui(self.ui))
         self.monitor = MonitorInterface()
         self.monitor_thread = Thread(target=self.monitor.run)
         self.main_thread = Thread(target=self.main_loop)
@@ -27,13 +27,16 @@ class Display(object):
 
     def main_loop(self):
         while(self.running):
-            self.monitor.buffer_semaphore.acquire()
+            if self.ui.ui_running.value == 0:
+                self.stop()
+                return
             if not self.running:
                 return
+            self.monitor.buffer_semaphore.acquire()
             packet = self.monitor.packets.pop()
             self.packet_count += 1
-            self.ui.update_count(self.packet_count)
-            print(packet)
+            self.ui.packet_count_value.value = self.packet_count
+            self.ui.packet_last_value = Array("B", packet)
 
 if __name__ == "__main__":
     disp = Display()
