@@ -34,28 +34,13 @@ void Delay (unsigned long tick) {
 }
 
 //based on UART_ForceBreak from library
-void Break(LPC_UART_TypeDef* UARTx, int high) {
-  //CHECK_PARAM(PARAM_UARTx(UARTx));
-  if (high){
-    if (((LPC_UART1_TypeDef *)UARTx) == LPC_UART1)
-      {
-        ((LPC_UART1_TypeDef *)UARTx)->LCR |= UART_LCR_BREAK_EN;
-      }
-      else
-      {
-        UARTx->LCR |= UART_LCR_BREAK_EN;
-      }
-    } else {
-      if (((LPC_UART1_TypeDef *)UARTx) == LPC_UART1)
-        {
-          ((LPC_UART1_TypeDef *)UARTx)->LCR &= ~UART_LCR_BREAK_EN;
-        }
-        else
-        {
-          UARTx->LCR &= ~UART_LCR_BREAK_EN;
-        }
-    }
+void SendBreakLow(int delay) {
+  LPC_UART1->LCR |= 0x40;
+  Delay(delay);
+  LPC_UART1->LCR &= ~(0x40);
+  Delay(delay);
 }
+//void SendBreakHI
 
 void Init(void){
 
@@ -114,7 +99,7 @@ void save_data(){
 /*
 void EL_SERIAL_Init(void)
 {
-  PINSEL_CFG_Type PinCfg;
+  PcINSEL_CFG_Type PinCfg;
   PinCfg.Funcnum = 1;
   PinCfg.OpenDrain = 0;
   PinCfg.Pinmode = 0;
@@ -174,7 +159,7 @@ void EL_SERIAL_Print(uint8_t string[])
 void send_data_UART(void){
   //First slot
   UART_SendByte(LPC_UART1, 0x00);
-
+  Delay(50);
   UART_Send(LPC_UART1, &data, 512, BLOCKING); //BLOCKING or NONE_BLOCKING ?
 
 }
@@ -219,9 +204,7 @@ void TimerConfig(void){
   TIM_Init(LPC_TIM0, TIM_TIMER_MODE, &TIM_ConfigStruct);
 }
 
-
-
-char get_keypad_press(){
+char read_keypad_press(){
   char read_buff[1];
   write_i2c(BUFF_FF,1, 0x21);
   int col = 0;
@@ -234,6 +217,26 @@ char get_keypad_press(){
     }
   }
   return 0x0F;
+}
+
+void get_keypad_press(char* read_buff){
+  write_i2c(BUFF_FF,1, 0x21);
+  int col = 0;
+  while(1){
+    write_i2c(&BUFF_COL[col],1,0x21);
+    read_i2c(read_buff, 1, 0x21);
+    if ((read_buff[0] & 0x0F) != 0x0F){
+        char out = read_buff[0];
+        while (1){
+          read_i2c(read_buff, 1, 0x21);
+          if ((read_buff[0] & 0x0F) == 0x0F){
+            read_buff[0] = out;
+            return;
+          }
+        }
+    }
+    col = (col+1) % 4;
+  }
 }
 
 void read_i2c(char* buffer, int length, int address){
@@ -250,7 +253,20 @@ void read_i2c(char* buffer, int length, int address){
 }
 
 void write_i2c(char* buffer, int length, int address){
-  I2C_M_SETUP_Type setup;
+  I2C_M_SETUP_Type setup;char get_keypad_press(){
+  char read_buff[1];
+  write_i2c(BUFF_FF,1, 0x21);
+  int col = 0;
+  for (col = 0; col < 4; col++){
+    write_i2c(&BUFF_COL[col],1,0x21);
+    read_i2c(read_buff, 1, 0x21);
+    //save the read buff value when pressed (!=0x0F)
+    if (read_buff[0] & 0x0F){
+        return read_buff[0];
+    }
+  }
+  return 0x0F;
+}
 
   setup.sl_addr7bit = address;
   setup.tx_data = buffer;
@@ -269,7 +285,6 @@ void init_I2C(void){
   pincfg1.OpenDrain = 0;
   pincfg1.Pinmode = 0;
   pincfg1.Pinnum = 0;
-
   pincfg1.Portnum = 0;
 
   PINSEL_CFG_Type pincfg2;
@@ -302,28 +317,61 @@ int main(){
   char read_buff[0];
   Init();
 
-/*test for keypad press stuff*/
-  while(1){
-    write_i2c(BUFF_FF,1, 0x21);
-    for (i = 0; i < 512; i++){
-      write_i2c(&BUFF_COL[i % 4],1,0x21);
-      read_i2c(read_buff, 1, 0x21);
-      data[i] = read_buff[0];
-    }
-    send_data_UART();
-  }
 
-  /*
+
+/*test for keypad press stuff*/
+  init_I2C();
+
+
+/*
+  while(1){
+    UART_SendByte(LPC_UART1, 0x00);
+    UART_SendByte(LPC_UART1, 0x88);
+    UART_SendByte(LPC_UART1, 0xFF);
+  }
+*/
+
+
+  get_keypad_press(read_buff);
+
+  switch(read_buff[0]&0xF0){
+    case 0x70:
+      for (i = 0; i < 512; i++){
+        data[0] = 0xFF; // bits arrive in backwards order because endianness
+        data[1] = 0x00;
+        data[2] = 0x00;
+      }
+      break;
+    case 0xB0:
+      for (i = 0; i < 512; i++){
+        data[0] = 0x00; // bits arrive in backwards order because endianness
+        data[1] = 0xFF;
+        data[2] = 0x00;
+      }
+      break;
+    case 0xD0:
+      for (i = 0; i < 512; i++){
+        data[0] = 0x00; // bits arrive in backwards order because endianness
+        data[1] = 0x00;
+        data[2] = 0xFF;
+      }
+      break;
+    case 0xE0:
+      for (i = 0; i < 512; i++){
+        data[0] = 0xAA; // bits arrive in backwards order because endianness
+        data[1] = 0xAA;
+        data[2] = 0xAA;
+      }
+      break;
+  }
     //Main loop
   while(1){
-
     //MTBP
-    Break(LPC_UART1, HIGH);
+    LPC_UART1->LCR &= 0xBF;
+    Delay(2000);
+    //Customize data
 
-
-    //Customize data! Yay! XD \(^o^)/ 8==D~
-
-    read = get_keypad_press();//translate keypad press to send send data
+    /*read = get_keypad_press();//translate keypad press to send send data
     if (read == 0x00){
       for (i = 0; i < 512; i++){
         data[i] = 0x00; // bits arrive in backwards order because endianness
@@ -332,14 +380,16 @@ int main(){
       for (i = 0; i < 512; i++){
         data[i] = 0xFF; // bits arrive in backwards order because endianness
       }
-    }
+    }*/
     //BREAK
-    Break(LPC_UART1, LOW);
-    Delay(88);
+    LPC_UART1->LCR |= 0x40;
+    Delay(2000);
     //MAB
-    Break(LPC_UART1, HIGH);
-    Delay(8);
+    LPC_UART1->LCR &= 0xBF;
+    Delay(40);
     //Send Data
     send_data_UART();
-  }*/
+    while (UART_CheckBusy(LPC_UART1)==SET);
+    
+  }
 }
