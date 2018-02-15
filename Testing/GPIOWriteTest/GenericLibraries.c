@@ -33,8 +33,7 @@ void PinCFG_Init(int funcnum);
 void UART_Init2(void);
 void I2C_Init2(void);
 void get_keypad_press(char* read_buff);
-//uint8_t read_keypad_press(void);
-uint8_t decode_keypad(uint8_t input);
+char read_keypad_press(void);
 void read_i2c(char* buffer, int length, int address);
 void write_i2c(char* buffer, int length, int address);
 void send_colours(uint8_t coloursRGB[][3], uint8_t length, uint32_t delay);
@@ -110,7 +109,39 @@ void I2C_Init2(void){
   I2C_Cmd(LPC_I2C1, ENABLE);
 }
 
-
+void get_keypad_press(char* read_buff){
+  write_i2c(BUFF_FF,1, 0x21);
+  int col = 0;
+  while(1){
+    write_i2c(&BUFF_COL[col],1,0x21);
+    read_i2c(read_buff, 1, 0x21);
+    if ((read_buff[0] & 0x0F) != 0x0F){
+        char out = read_buff[0];
+        while (1){
+          read_i2c(read_buff, 1, 0x21);
+          if ((read_buff[0] & 0x0F) == 0x0F){
+            read_buff[0] = out;
+            return;
+          }
+        }
+    }
+    col = (col+1) % 4;
+  }
+}
+char read_keypad_press(void){
+  char read_buff[1];
+  write_i2c(BUFF_FF,1, 0x21);
+  int col = 0;
+  for (col = 0; col < 4; col++){
+    write_i2c(&BUFF_COL[col],1,0x21);
+    read_i2c(read_buff, 1, 0x21);
+    //save the read buff value when pressed (!=0x0F)
+    if (read_buff[0] & 0x0F){
+        return read_buff[0];
+    }
+  }
+  return 0x0F;
+}
 
 void read_i2c(char* buffer, int length, int address){
   I2C_M_SETUP_Type setup;
@@ -137,65 +168,6 @@ void write_i2c(char* buffer, int length, int address){
   I2C_MasterTransferData(LPC_I2C1, &setup, I2C_TRANSFER_POLLING);
 }
 
-/*
-* Returns four bits, 2x2 bits:
-* First two bits are the row
-* Second two bits are the column
-*/
-
-void get_keypad_press(char* read_buff){
-  write_i2c(BUFF_FF,1, 0x21);
-  int col = 0;
-  while(1){
-    write_i2c(&BUFF_COL[col],1,0x21);
-    read_i2c(read_buff, 1, 0x21);
-    if ((read_buff[0] & 0x0F) != 0x0F){
-        char out = read_buff[0];
-        while (1){
-          read_i2c(read_buff, 1, 0x21);
-          if ((read_buff[0] & 0x0F) == 0x0F){
-            read_buff[0] = out;
-            return;
-          }
-        }
-    }
-    col = (col+1) % 4;
-  }
-}
-/*
-uint8_t read_keypad_press(void){
-  uint8_t read_buff[1];
-  write_i2c(BUFF_FF,1, 0x21);
-  int col = 0;
-  for (col = 0; col < 4; col++){
-    write_i2c(&BUFF_COL[col],1,0x21);
-    read_i2c(read_buff, 1, 0x21);
-    //save the read buff value when pressed (!=0x0F)
-    if (read_buff[0] & 0x0F){
-        return read_buff[0];
-    }
-  }
-  return 0x0F;
-}
-*/
-uint8_t decode_keypad(uint8_t input){
-  uint8_t output; //0x0000rrcc
-  switch(input&0x0F){
-    case 0x07: output = 0;
-    case 0x0B: output = 1;
-    case 0x0D: output = 2;
-    case 0x0E: output = 3;
-  }
-  output = output << 2;
-  switch(input&0xF0){
-    case 0x70: output += 0;
-    case 0xB0: output += 1;
-    case 0xD0: output += 2;
-    case 0xE0: output += 3;
-  }
-  return output;
-}
-
 //sends one whole block of data.
 void send_data_UART(int wait){
   //MTBP
@@ -216,6 +188,9 @@ void send_data_UART(int wait){
 
   if (wait) while (UART_CheckBusy(LPC_UART1)==SET);
 }
+
+
+
 void send_colours(uint8_t coloursRGB[][3], uint8_t length, uint32_t delay){
   int i;
   for (i = 0; i < length; i++){
@@ -229,6 +204,7 @@ void send_colours(uint8_t coloursRGB[][3], uint8_t length, uint32_t delay){
   }
 }
 
+
 int main(){
   Full_Init();
 
@@ -238,7 +214,7 @@ int main(){
     data[i] = 0xFF; // bits arrive in backwards order because endianness
   }
 
-  uint8_t read_buff[0];
+  char read_buff[0];
 
   uint8_t colours[7][3] = { {255,0,255},
                           {255,0,0},
@@ -254,12 +230,36 @@ int main(){
   while(1){
     get_keypad_press(read_buff);
 
-    int temp = decode_keypad(read_buff[0]);
-    data[0] = 255 * temp&1;
-    data[1] = 255 * temp&2;
-    data[2] = 255 * temp&4;
-
-
+    switch(read_buff[0]&0xF0){
+      case 0x70:
+        for (i = 0; i < 512; i++){
+          data[0] = 0xFF; // bits arrive in backwards order because endianness
+          data[1] = 0x00;
+          data[2] = 0x00;
+        }
+        break;
+      case 0xB0:
+        for (i = 0; i < 512; i++){
+          data[0] = 0x00; // bits arrive in backwards order because endianness
+          data[1] = 0xFF;
+          data[2] = 0x00;
+        }
+        break;
+      case 0xD0:
+        for (i = 0; i < 512; i++){
+          data[0] = 0x00; // bits arrive in backwards order because endianness
+          data[1] = 0x00;
+          data[2] = 0xFF;
+        }
+        break;
+      case 0xE0:
+        for (i = 0; i < 512; i++){
+          data[0] = 0xAA; // bits arrive in backwards order because endianness
+          data[1] = 0xAA;
+          data[2] = 0xAA;
+        }
+        break;
+    }
 
     send_data_UART(WAIT);
   }
