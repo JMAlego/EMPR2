@@ -360,30 +360,10 @@ void printKeyToLCD(int rrcc, int count){
 }
 
 int main(){
-  int count = 0;
+
   Full_Init();
+  set_basic_data();
 
-
-
-
-  //Set Initial Data
-  int i;
-  for (i = 0; i < 512; i++){
-    data[i] = 0xFF; // bits arrive in backwards order because endianness
-  }
-
-  uint8_t read_buff[0];
-/*
-  uint8_t colours[7][3] = { {255,0,255},
-                          {255,0,0},
-                          {0,0,255},
-                          {0,255,0},
-                          {255,255,255},
-                          {100,100,100},
-                          {0,255,255} };
-
-  send_colours(colours, 7, 500000);
-*/
   //Main loop
   while(1){
     get_keypad_press(read_buff);
