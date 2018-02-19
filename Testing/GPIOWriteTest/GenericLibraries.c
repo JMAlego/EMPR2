@@ -18,6 +18,10 @@
 #define WAIT 1
 #define DONT_WAIT 0
 #define LCD_ADDRESS 0x3B
+#define SEGMENT_1_ADDRESS 0x70
+#define SEGMENT_2_ADDRESS 0x72
+#define SEGMENT_3_ADDRESS 0x74
+#define SEGMENT_4_ADDRESS 0x76
 
 #define _SPACE 0xA0
 #define _A 0xC1
@@ -116,8 +120,8 @@ void write_i2c(char* buffer, int length, int address);
 void set_basic_data(void);
 void send_colours(uint8_t coloursRGB[][3], uint8_t length, uint32_t delay);
 void LCD_clear(void);
-void printKeyToLCD(int rrcc, int LCDcount)
-
+void printKeyToLCD(int rrcc, int LCDcount);
+void set_segment(int segment, int val);
 
 
 void SysTick_Handler (void) {
@@ -218,6 +222,38 @@ void write_i2c(char* buffer, int length, int address){
   setup.retransmissions_max = 0;
 
   I2C_MasterTransferData(LPC_I2C1, &setup, I2C_TRANSFER_POLLING);
+}
+
+void set_segment(int segment, int val){
+  int address;
+  switch (segment) {
+    case 1: write_i2c(0x76, 1, SEGMENT_4_ADDRESS);
+      write_i2c(val, 1, SEGMENT_4_ADDRESS);
+      write_i2c(Xzyx0110)
+      switch (val) {
+        case 0:
+        case 1:
+        case 2:
+        case 3:
+        case 4:
+        case 5:
+        case 6:
+        case 7:
+        case 8:
+        case 9:
+      }
+      break;
+    case 2: write_i2c(0x74, 1, SEGMENT_3_ADDRESS);
+      write_i2c(val, 1, SEGMENT_3_ADDRESS);
+      break;
+    case 3: write_i2c(0x72, 1, SEGMENT_2_ADDRESS);
+      write_i2c(val, 1, SEGMENT_2_ADDRESS);
+      break;
+    case 4: write_i2c(0x70, 1, SEGMENT_1_ADDRESS);
+      write_i2c(val, 1, SEGMENT_1_ADDRESS);
+      break;
+  }
+
 }
 
 void get_keypad_press(char* read_buff){
