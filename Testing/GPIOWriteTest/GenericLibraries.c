@@ -1,6 +1,7 @@
 //How to use github (Jacob ignore this pls_)
 //git pull; git add . ; git commit -m "message" ; git push
 
+
 #include "lpc17xx_gpio.h"
 #include "lpc17xx_uart.h"
 #include "lpc17xx_pinsel.h"
@@ -16,12 +17,87 @@
 #define HIGH 0
 #define WAIT 1
 #define DONT_WAIT 0
+#define LCD_ADDRESS 0x3B
+
+#define _SPACE 0xA0
+#define _A 0xC1
+#define _B 0xC2
+#define _C 0xC3
+#define _D 0xC4
+#define _E 0xC5
+#define _F 0xC6
+#define _G 0xC7
+#define _H 0xC8
+#define _I 0xC9
+#define _J 0xCA
+#define _K 0xCB
+#define _L 0xCC
+#define _M 0xCD
+#define _N 0xCE
+#define _O 0xCF
+#define _P 0xD0
+#define _Q 0xD1
+#define _R 0xD2
+#define _S 0xD3
+#define _T 0xD4
+#define _U 0xD5
+#define _V 0xD6
+#define _W 0xD7
+#define _X 0xD8
+#define _Y 0xD9
+#define _Z 0xDA
+#define _0 0xB0
+#define _1 0xB1
+#define _2 0xB2
+#define _3 0xB3
+#define _4 0xB4
+#define _5 0xB5
+#define _6 0xB6
+#define _7 0xB7
+#define _8 0xB8
+#define _9 0xB9
+#define _a 0x61
+#define _b 0x62
+#define _c 0x63
+#define _d 0x64
+#define _e 0x65
+#define _f 0x66
+#define _g 0x67
+#define _h 0x68
+#define _i 0x69
+#define _j 0x6A
+#define _k 0x6B
+#define _l 0x6C
+#define _m 0x6D
+#define _n 0x6E
+#define _o 0x6F
+#define _p 0x70
+#define _q 0x71
+#define _r 0x72
+#define _s 0x73
+#define _t 0x74
+#define _u 0x75
+#define _v 0x76
+#define _w 0x77
+#define _x 0x78
+#define _y 0x79
+#define _z 0x7A
+#define _ASTERIX 0xAA
+#define _HASH 0xA3
 
 const char BUFF_FF[1] = {0xFF};
 const char BUFF_COL[4] = {0x7F,0xBF,0xDF,0xEF};
+const char BUFF_SETUP[11] = {0x00, 0x34, 0x0C, 0x06, 0x35, 0x04, 0x10, 0x42, 0x9F, 0x34, 0x02};
+const char BUFF_HELLO_WORLD[11] = {0xC8, 0xC5, 0xCC, 0xCC, 0xCF, 0xA0, 0xD7, 0xCF, 0xD2, 0xCC, 0xC4};
+uint8_t read_buff[0];
 volatile unsigned long SysTickCnt;
+static int LCDcount = 0;
 volatile uint8_t data[512];
 static uint8_t lamp_rgb_address[3] = {0,1,2};
+const uint8_t LOOKUP[4][4] = {{0xB1, 0xB2, 0xB3, 0xC1}, //1,2,3,A
+                            {0xB4, 0xB5, 0xB6, 0xC2},   //4.5.6.B
+                            {0xB7, 0xB8, 0xB9, 0xC3},   //7,8,9,C
+                            {0xAA, 0xB0, 0xA3, 0xC4}};  //*,0.#,D
 
 
 void SysTick_Handler (void);
@@ -33,10 +109,16 @@ void PinCFG_Init(int funcnum);
 void UART_Init2(void);
 void I2C_Init2(void);
 void get_keypad_press(char* read_buff);
-char read_keypad_press(void);
+//uint8_t read_keypad_press(void);
+uint8_t decode_keypad(uint8_t input);
 void read_i2c(char* buffer, int length, int address);
 void write_i2c(char* buffer, int length, int address);
+void set_basic_data(void);
 void send_colours(uint8_t coloursRGB[][3], uint8_t length, uint32_t delay);
+void LCD_clear(void);
+void printKeyToLCD(int rrcc, int LCDcount)
+
+
 
 void SysTick_Handler (void) {
   SysTickCnt++;
@@ -65,6 +147,10 @@ void Full_Init(void){
   UART_FIFOConfig((LPC_UART_TypeDef *) LPC_UART1, (UART_FIFO_CFG_Type *) &FIFOCfg);
   // Init I2C
   I2C_Init2();
+  // Init LCD
+  write_i2c(BUFF_SETUP, 11, LCD_ADDRESS);
+  LCD_clear();
+  Delay(1000);
 }
 void PinCFG_Init(int funcnum){
 
@@ -109,40 +195,6 @@ void I2C_Init2(void){
   I2C_Cmd(LPC_I2C1, ENABLE);
 }
 
-void get_keypad_press(char* read_buff){
-  write_i2c(BUFF_FF,1, 0x21);
-  int col = 0;
-  while(1){
-    write_i2c(&BUFF_COL[col],1,0x21);
-    read_i2c(read_buff, 1, 0x21);
-    if ((read_buff[0] & 0x0F) != 0x0F){
-        char out = read_buff[0];
-        while (1){
-          read_i2c(read_buff, 1, 0x21);
-          if ((read_buff[0] & 0x0F) == 0x0F){
-            read_buff[0] = out;
-            return;
-          }
-        }
-    }
-    col = (col+1) % 4;
-  }
-}
-char read_keypad_press(void){
-  char read_buff[1];
-  write_i2c(BUFF_FF,1, 0x21);
-  int col = 0;
-  for (col = 0; col < 4; col++){
-    write_i2c(&BUFF_COL[col],1,0x21);
-    read_i2c(read_buff, 1, 0x21);
-    //save the read buff value when pressed (!=0x0F)
-    if (read_buff[0] & 0x0F){
-        return read_buff[0];
-    }
-  }
-  return 0x0F;
-}
-
 void read_i2c(char* buffer, int length, int address){
   I2C_M_SETUP_Type setup;
 
@@ -168,7 +220,63 @@ void write_i2c(char* buffer, int length, int address){
   I2C_MasterTransferData(LPC_I2C1, &setup, I2C_TRANSFER_POLLING);
 }
 
+void get_keypad_press(char* read_buff){
+  write_i2c(BUFF_FF,1, 0x21);
+  int col = 0;
+  while(1){
+    write_i2c(&BUFF_COL[col],1,0x21);
+    read_i2c(read_buff, 1, 0x21);
+    if ((read_buff[0] & 0x0F) != 0x0F){
+        char out = read_buff[0];
+        while (1){
+          read_i2c(read_buff, 1, 0x21);
+          if ((read_buff[0] & 0x0F) == 0x0F){
+            read_buff[0] = out;
+            return;
+          }
+        }
+    }
+    col = (col+1) % 4;
+  }
+}
+
+uint8_t decode_keypad(uint8_t input){
+  uint8_t output; //0x0000rrcc
+  switch(input&0x0F){
+    case 0x07: output = 0;
+      break;
+    case 0x0B: output = 1;
+      break;
+    case 0x0D: output = 2;
+      break;
+    case 0x0E: output = 3;
+      break;
+    }
+
+  output = output << 2;
+  switch(input&0xF0){
+    case 0x70: output += 0;
+      break;
+    case 0xB0: output += 1;
+      break;
+    case 0xD0: output += 2;
+      break;
+    case 0xE0: output += 3;
+      break;
+  }
+
+  return output;
+}
+
 //sends one whole block of data.
+void set_basic_data(void){
+  //Set Initial Data
+  int i;
+  for (i = 0; i < 512; i++){
+    data[i] = 0xFF; // bits arrive in backwards order because endianness
+  }
+}
+
 void send_data_UART(int wait){
   //MTBP
   BreakFlagHigh();
@@ -188,9 +296,6 @@ void send_data_UART(int wait){
 
   if (wait) while (UART_CheckBusy(LPC_UART1)==SET);
 }
-
-
-
 void send_colours(uint8_t coloursRGB[][3], uint8_t length, uint32_t delay){
   int i;
   for (i = 0; i < length; i++){
@@ -204,63 +309,43 @@ void send_colours(uint8_t coloursRGB[][3], uint8_t length, uint32_t delay){
   }
 }
 
-
-int main(){
-  Full_Init();
-
-  //Set Initial Data
+void LCD_clear(void){
   int i;
-  for (i = 0; i < 512; i++){
-    data[i] = 0xFF; // bits arrive in backwards order because endianness
+  char address[2];
+  address[0] = 0x00;
+  char buff_char[2];
+  buff_char[0] = 0x40;
+  for(i = 0; i < 16; i++){
+    address[1] = 0x80 + i;
+    buff_char[1] = 0xA0;
+    write_i2c(address, 2, LCD_ADDRESS);
+    write_i2c(buff_char, 2, LCD_ADDRESS);
   }
-
-  char read_buff[0];
-
-  uint8_t colours[7][3] = { {255,0,255},
-                          {255,0,0},
-                          {0,0,255},
-                          {0,255,0},
-                          {255,255,255},
-                          {100,100,100},
-                          {0,255,255} };
-
-  send_colours(colours, 7, 500000);
-
-  //Main loop
-  while(1){
-    get_keypad_press(read_buff);
-
-    switch(read_buff[0]&0xF0){
-      case 0x70:
-        for (i = 0; i < 512; i++){
-          data[0] = 0xFF; // bits arrive in backwards order because endianness
-          data[1] = 0x00;
-          data[2] = 0x00;
-        }
-        break;
-      case 0xB0:
-        for (i = 0; i < 512; i++){
-          data[0] = 0x00; // bits arrive in backwards order because endianness
-          data[1] = 0xFF;
-          data[2] = 0x00;
-        }
-        break;
-      case 0xD0:
-        for (i = 0; i < 512; i++){
-          data[0] = 0x00; // bits arrive in backwards order because endianness
-          data[1] = 0x00;
-          data[2] = 0xFF;
-        }
-        break;
-      case 0xE0:
-        for (i = 0; i < 512; i++){
-          data[0] = 0xAA; // bits arrive in backwards order because endianness
-          data[1] = 0xAA;
-          data[2] = 0xAA;
-        }
-        break;
-    }
-
-    send_data_UART(WAIT);
+  for(i = 0; i < 16; i++){
+    address[1] = 0xC0 + i;
+    buff_char[1] = 0xA0;
+    write_i2c(address, 2, LCD_ADDRESS);
+    write_i2c(buff_char, 2, LCD_ADDRESS);
   }
+}
+
+void printKeyToLCD(int rrcc, int LCDcount){
+  int j = (rrcc >> 2) & 3;
+  int i = rrcc & 3;
+  int press = 0;
+  char address[2];
+  address[0] = 0x00;
+  char buff_char[2];
+  buff_char[0] = 0x40;
+
+  address[1] = 0x80 + LCDcount;
+  buff_char[1] = LOOKUP[j][i];
+  write_i2c(address, 2, LCD_ADDRESS);
+  write_i2c(buff_char, 2, LCD_ADDRESS);
+  if (LCDcount == 16){
+    LCDcount = 40;
+  } else if (LCDcount == 56) {
+    LCDcount = 0;
+  }
+  LCDcount++;
 }
