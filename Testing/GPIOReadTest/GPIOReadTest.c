@@ -474,7 +474,7 @@ int main(){
     }
     while(current_menu_state == DISPLAY_MODE){
       errors = getFrame(&type_slot, &slots);
-      uint8_t output_buffer[1027];
+      uint8_t output_buffer[1028];
       int output_index = 0;
       output_buffer[0] = '!';
       uint8_t prev = 0;
@@ -510,6 +510,8 @@ int main(){
         output_buffer_index++;
         prev_count = 0;
       }
+      output_buffer[output_buffer_index] = '\r';
+      output_buffer_index++;
       output_buffer[output_buffer_index] = '\n';
       output_buffer_index++;
       output_buffer[output_buffer_index] = '\0';

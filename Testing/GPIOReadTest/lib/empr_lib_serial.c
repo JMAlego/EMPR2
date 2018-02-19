@@ -38,7 +38,7 @@ size_t EL_SERIAL_SizeOfString(uint8_t string[])
 
 void EL_SERIAL_Print(uint8_t string[])
 {
-  UART_Send(LPC_UART0, string, EL_SERIAL_SizeOfString(string), BLOCKING);
+  UART_Send(LPC_UART0, string, EL_SERIAL_SizeOfString(string) - 1, BLOCKING);
 }
 
 #endif

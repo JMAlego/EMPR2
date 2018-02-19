@@ -2,7 +2,7 @@
 
 import gi
 gi.require_version('Gtk', '3.0')
-from gi.repository import Gtk, GObject
+from gi.repository import Gtk, GObject, Pango
 from multiprocessing import Process, Value, Array
 
 class DisplayUI(Gtk.Window):
@@ -10,9 +10,11 @@ class DisplayUI(Gtk.Window):
     def __init__(self):
         self.packet_count_value = Value("i", 0)
         self.ui_running = Value("b", 1)
+        self.reset_count = Value("b", 0)
         self.packet_last_value = Array("B", [0]*512)
-        Gtk.Window.__init__(self, title="Label Example")
-        self.set_default_size(600, 400)
+        self.mode = "SINGLE_CAPTURE"
+        Gtk.Window.__init__(self, title="EMPR PC Display")
+        self.set_default_size(800, 600)
 
         hbox = Gtk.Box(spacing=10)
         hbox.set_homogeneous(False)
@@ -32,17 +34,26 @@ class DisplayUI(Gtk.Window):
         text_data = Gtk.TextView()
         text_data.set_editable(False)
         text_data.set_wrap_mode(3)
+        fontdesc = Pango.FontDescription("monospace 10")
+        text_data.modify_font(fontdesc)
         vbox_right.pack_start(text_data, True, True, 0)
         self.packet_data = text_data
 
         label = Gtk.Label("Menu")
         vbox_left.pack_start(label, True, True, 0)
 
+        button = Gtk.Button(label="Reset Count")
+        button.connect("clicked", self.btn_reset_count)
+        label.set_mnemonic_widget(button)
+        vbox_left.pack_start(button, True, True, 0)
+
         button = Gtk.Button(label="Single Capture")
+        button.connect("clicked", self.btn_single_capture)
         label.set_mnemonic_widget(button)
         vbox_left.pack_start(button, True, True, 0)
 
         button = Gtk.Button(label="Continuous Capture")
+        button.connect("clicked", self.btn_multi_capture)
         label.set_mnemonic_widget(button)
         vbox_left.pack_start(button, True, True, 0)
 
@@ -55,8 +66,21 @@ class DisplayUI(Gtk.Window):
 
     def on_timeout(self, event=None):
         self.packet_count_label.set_text("Packet Count: " + str(self.packet_count_value.value))
-        self.packet_data.get_buffer().set_text(" ".join([hex(x) for x in self.packet_last_value[:]]))
+        if self.mode == "SINGLE_CAPTURE":
+            self.packet_data.get_buffer().set_text(" ".join([hex(x).ljust(4, "0") for x in self.packet_last_value[:]]))
+            self.mode = "WAITING"
+        if self.mode == "MULTI_CAPTURE":
+            self.packet_data.get_buffer().set_text(" ".join([hex(x).ljust(4, "0") for x in self.packet_last_value[:]]))
         return True
+
+    def btn_reset_count(self, event):
+        self.reset_count.value = 1
+
+    def btn_single_capture(self, event):
+        self.mode = "SINGLE_CAPTURE"
+
+    def btn_multi_capture(self, event):
+        self.mode = "MULTI_CAPTURE"
 
     def on_quit(self, event=None, event2=None):
         self.ui_running.value = 0
@@ -70,5 +94,6 @@ class DisplayUI(Gtk.Window):
         Gtk.main()
 
 if __name__ == "__main__":
+    print("This module will not function properly if run, please run the core display file instead.")
     win = DisplayUI()
     DisplayUI.create_ui(win)

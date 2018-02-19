@@ -3,7 +3,7 @@
 from monitor_interface import MonitorInterface
 from user_interface import DisplayUI
 from threading import Thread, Semaphore
-from multiprocessing import Process, Array
+from multiprocessing import Process, Array, Value
 
 class Display(object):
     def __init__(self):
@@ -30,13 +30,16 @@ class Display(object):
             if self.ui.ui_running.value == 0:
                 self.stop()
                 return
+            if self.ui.reset_count.value == 1:
+                self.packet_count = 0
+                self.ui.reset_count.value = 0
             if not self.running:
                 return
-            self.monitor.buffer_semaphore.acquire()
-            packet = self.monitor.packets.pop()
-            self.packet_count += 1
-            self.ui.packet_count_value.value = self.packet_count
-            self.ui.packet_last_value = Array("B", packet)
+            if(self.monitor.buffer_semaphore.acquire(timeout=1)):
+                packet = self.monitor.packets.pop()
+                self.packet_count += 1
+                self.ui.packet_count_value.value = self.packet_count
+                self.ui.packet_last_value = Array("B", packet)
 
 if __name__ == "__main__":
     disp = Display()
