@@ -4,6 +4,7 @@ import gi
 gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk, GObject, Pango
 from multiprocessing import Process, Value, Array
+from ui_channel_display import UIChannelDisplay
 
 class DisplayUI(Gtk.Window):
 
@@ -15,6 +16,7 @@ class DisplayUI(Gtk.Window):
         self.mode = "SINGLE_CAPTURE"
         Gtk.Window.__init__(self, title="EMPR PC Display")
         self.set_default_size(800, 600)
+        self.channel_windows = []
 
         hbox = Gtk.Box(spacing=10)
         hbox.set_homogeneous(False)
@@ -57,6 +59,11 @@ class DisplayUI(Gtk.Window):
         label.set_mnemonic_widget(button)
         vbox_left.pack_start(button, True, True, 0)
 
+        button = Gtk.Button(label="New Channel Monitor")
+        button.connect("clicked", self.btn_create_channel_monitor)
+        label.set_mnemonic_widget(button)
+        vbox_left.pack_start(button, True, True, 0)
+
         self.add(hbox)
 
         self.timeout_id = GObject.timeout_add(25, self.on_timeout, None)
@@ -81,6 +88,12 @@ class DisplayUI(Gtk.Window):
 
     def btn_multi_capture(self, event):
         self.mode = "MULTI_CAPTURE"
+
+    def btn_create_channel_monitor(self, event):
+        print("IN")
+        self.channel_windows.append(UIChannelDisplay(self))
+        print(self.channel_windows)
+        print("OUT")
 
     def on_quit(self, event=None, event2=None):
         self.ui_running.value = 0
