@@ -132,8 +132,12 @@ void main_menu(void){
 int main(void){
   Full_Init();
   LCD_clear();
+
+  /* //DEBUG light
   set_basic_data();
-  //send_data_UART(BLOCKING);
+  display_colour(1);
+  send_data_UART(BLOCKING);
+  //*/
 
   colour[0][0] = 255;
   colour[0][1] = 0;
@@ -155,6 +159,21 @@ int main(void){
   for (i = 0; i < 5; i++){
     sequence[0][i] = colour[i];
   }
+
+  /* //DEBUG LCD and keypad
+  LCD_clear();
+  while(1){
+    get_keypad_press(read_buff);
+    display_colour(0);
+    printKeyToLCD(decode_keypad(read_buff[0]),LCDcount);
+  }
+  //*/
+
+
+
+
+  LCD_clear();
+
 
 
 

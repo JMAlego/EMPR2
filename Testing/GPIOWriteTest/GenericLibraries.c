@@ -455,8 +455,34 @@ void get_keypad_press(uint8_t* read_buff){
     col = (col+1) % 4;
   }
 }
+uint8_t decode_keypad(uint8_t input){
+  uint8_t output; //0x0000rrcc
+  switch(input&0x0F){
+    case 0x07: output = 0;
+      break;
+    case 0x0B: output = 1;
+      break;
+    case 0x0D: output = 2;
+      break;
+    case 0x0E: output = 3;
+      break;
+    }
 
-//sends one whole block of data.
+  output = output << 2;
+  switch(input&0xF0){
+    case 0x70: output += 0;
+      break;
+    case 0xB0: output += 1;
+      break;
+    case 0xD0: output += 2;
+      break;
+    case 0xE0: output += 3;
+      break;
+  }
+
+  return output;
+}
+
 void set_basic_data(void){
   //Set Initial Data
   int i;
@@ -518,7 +544,6 @@ void LCD_clear(void){
   }
   Delay(1000);
 }
-
 void printKeyToLCD(int rrcc, int LCDcount){
   int j = (rrcc >> 2) & 3;
   int i = rrcc & 3;
