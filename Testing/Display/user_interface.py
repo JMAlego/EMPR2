@@ -12,7 +12,7 @@ class DisplayUI(Gtk.Window):
         self.packet_count_value = Value("i", 0)
         self.ui_running = Value("b", 1)
         self.reset_count = Value("b", 0)
-        self.packet_last_value = Array("B", [0]*512)
+        self.packet_last_value = Array("B", list(range(512)))
         self.mode = "SINGLE_CAPTURE"
         Gtk.Window.__init__(self, title="EMPR PC Display")
         self.set_default_size(800, 600)
@@ -109,12 +109,16 @@ class DisplayUI(Gtk.Window):
         if self.mode == "SINGLE_CAPTURE":
             index = 0
             for value in self.packet_last_value[:]:
-                self.packet_data[index] = [str(index + 1), hex(value).ljust(4, "0")]
+                self.packet_data[index] = [str(index + 1), "0x" + hex(value)[2:].rjust(2, "0")]
+                index += 1
             self.mode = "WAITING"
         if self.mode == "MULTI_CAPTURE":
             index = 0
             for value in self.packet_last_value[:]:
-                self.packet_data[index] = [str(index + 1), hex(value).ljust(4, "0")]
+                self.packet_data[index] = [str(index + 1), "0x" + hex(value)[2:].rjust(2, "0")]
+                index += 1
+        for cid, child in self.channel_windows.items():
+            child.update_values()
         return True
 
     def btn_reset_count(self, event):
