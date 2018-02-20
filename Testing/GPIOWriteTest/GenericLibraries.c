@@ -517,6 +517,7 @@ void send_colours(uint8_t coloursRGB[][3], uint8_t length, uint32_t delay){
 }
 
 void LCD_clear(void){
+  Delay(1000);
   int i;
   uint8_t address[2];
   address[0] = 0x00;
@@ -534,6 +535,7 @@ void LCD_clear(void){
     write_i2c(address, 2, LCD_ADDRESS);
     write_i2c(buff_char, 2, LCD_ADDRESS);
   }
+  Delay(1000);
 }
 
 void printKeyToLCD(int rrcc, int LCDcount){
