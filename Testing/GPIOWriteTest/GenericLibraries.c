@@ -6,8 +6,16 @@
 #include "lpc17xx_uart.h"
 #include "lpc17xx_pinsel.h"
 #include "lpc17xx_i2c.h"
+#include <stdlib.h>
 #include <stdio.h>
 #include <lpc17xx_timer.h>
+#include "lib/empr_lib_utilities.c"
+#include "lib/empr_lib_lcd.c"
+#include "lib/empr_lib_keypad.c"
+#include "lib/empr_lib_serial.c"
+#include <string.h>
+
+
 
 #define SENDING 0x40040
 #define RECEIVING 0x20000
@@ -85,6 +93,7 @@
 #define _ASTERIX 0xAA
 #define _HASH 0xA3
 
+
 //Address Defines for SAA1064
 #define SAA1064_SA0 0x70
 #define SAA1064_SA1 0x72
@@ -128,10 +137,6 @@
 #define D_L6                 0x40
 #define D_L7                 0x80
 
-const uint8_t SAA1064_SEGM[] = {0x3F,0x06, 0x5B,0x4F,
-                                0x66,0x6D,0x7D,0x07,
-                                0x7F,0x6F,0x77,0x7C,
-                                0x39,0x5E,0x79,0x71};
 
 #define SAA1064_DP              0x80   //Decimal Point
 #define SAA1064_MINUS           0x40   //Minus Sign
@@ -140,10 +145,17 @@ const uint8_t SAA1064_SEGM[] = {0x3F,0x06, 0x5B,0x4F,
 
 #define EIGHT_SEG_ADDRESS 0x38
 
-const char BUFF_FF[1] = {0xFF};
-const char BUFF_COL[4] = {0x7F,0xBF,0xDF,0xEF};
-const char BUFF_SETUP[11] = {0x00, 0x34, 0x0C, 0x06, 0x35, 0x04, 0x10, 0x42, 0x9F, 0x34, 0x02};
-const char BUFF_HELLO_WORLD[11] = {0xC8, 0xC5, 0xCC, 0xCC, 0xCF, 0xA0, 0xD7, 0xCF, 0xD2, 0xCC, 0xC4};
+
+const uint8_t SAA1064_SEGM[] = {0x3F,0x06, 0x5B,0x4F,
+                                0x66,0x6D,0x7D,0x07,
+                                0x7F,0x6F,0x77,0x7C,
+                                0x39,0x5E,0x79,0x71};
+
+
+const uint8_t BUFF_FF[1] = {0xFF};
+const uint8_t BUFF_COL[4] = {0x7F,0xBF,0xDF,0xEF};
+const uint8_t BUFF_SETUP[11] = {0x00, 0x34, 0x0C, 0x06, 0x35, 0x04, 0x10, 0x42, 0x9F, 0x34, 0x02};
+const uint8_t BUFF_HELLO_WORLD[11] = {0xC8, 0xC5, 0xCC, 0xCC, 0xCF, 0xA0, 0xD7, 0xCF, 0xD2, 0xCC, 0xC4};
 volatile unsigned long SysTickCnt;
 static int LCDcount = 0;
 volatile uint8_t data[512];
@@ -153,43 +165,39 @@ const uint8_t KEY_TO_LCD_LOOKUP[4][4] = {{0xB1, 0xB2, 0xB3, 0xC1}, //1,2,3,A
                             {0xB7, 0xB8, 0xB9, 0xC3},   //7,8,9,C
                             {0xAA, 0xB0, 0xA3, 0xC4}};  //*,0.#,D
 
-
-void SysTick_Handler (void);
-void Delay (unsigned long tick);
+void print(char string[]);
+void init_SEGMENTS(void);
+void SEGMENT_WriteFloat(double double_value, int zeros);
+void SEGMENT_WriteHidden(int value, uint8_t dp_digit, int leading);
+void SEGMENT_Write(int int_value, int zeros);
+//void Delay (unsigned long tick);
 void BreakFlagLow(void);
 void BreakFlagHigh(void);
 void Full_Init(void);
 void PinCFG_Init(int funcnum);
 void UART_Init2(void);
 void I2C_Init2(void);
-void get_keypad_press(char* read_buff);
+void get_keypad_press(uint8_t* read_buff);
 //uint8_t read_keypad_press(void);
 uint8_t decode_keypad(uint8_t input);
-void read_i2c(char* buffer, int length, int address);
-void write_i2c(char* buffer, int length, int address);
+void read_i2c(uint8_t* buffer, int length, int address);
+void write_i2c(uint8_t* buffer, int length, int address);
 void set_basic_data(void);
+void send_data_UART(int wait);
 void send_colours(uint8_t coloursRGB[][3], uint8_t length, uint32_t delay);
 void LCD_clear(void);
 void printKeyToLCD(int rrcc, int LCDcount);
-void init_SEGMENTS();
 void SEGMENT_WriteHidden(int value, uint8_t dp_digit, int leading);
 void SEGMENT_Write(int int_value, int zeros);
 void SEGMENT_WriteFloat(double double_value, int zeros);
 
-void SysTick_Handler (void) {
-  SysTickCnt++;
+
+
+
+void print(char string[]){
+  UART_Send(LPC_UART0, (uint8_t *) string, EL_SERIAL_SizeOfString((uint8_t *) string), BLOCKING);
 }
-void Delay (unsigned long tick) {
-  unsigned long systickcnt;
-  systickcnt = SysTickCnt;
-  while ((SysTickCnt - systickcnt) < tick);
-}
-
-void BreakFlagLow(void){LPC_UART1->LCR |= 0x40;}
-void BreakFlagHigh(void){LPC_UART1->LCR &= 0xBF;}
-
-
-void init_SEGMENTS(){
+void init_SEGMENTS(void){
   uint8_t data[6];
 
   data[0] = SAA1064_CTRL;                     // Select Control Reg
@@ -203,146 +211,7 @@ void init_SEGMENTS(){
   //data[3] = SAA1064_ALL;                      // Digit 2: All Segments On
   //data[4] = SAA1064_ALL;                      // Digit 3: All Segments On
   //data[5] = SAA1064_ALL;                      // Digit 4: All Segments On
-
   write_i2c(data, 6, EIGHT_SEG_ADDRESS);
-}
-
-void Full_Init(void){
-  SysTick_Config(SystemCoreClock/1000000 - 1);
-
-  // Init pins
-  PinCFG_Init(1);
-  // Init UART
-  UART_Init2();
-  //Enable TxD pin
-  UART_TxCmd((LPC_UART_TypeDef *) LPC_UART1, ENABLE);
-  // Init UART FIFO
-  UART_FIFO_CFG_Type FIFOCfg;
-  UART_FIFOConfigStructInit((UART_FIFO_CFG_Type *)&FIFOCfg); //default configuration
-  UART_FIFOConfig((LPC_UART_TypeDef *) LPC_UART1, (UART_FIFO_CFG_Type *) &FIFOCfg);
-  // Init I2C
-  I2C_Init2();
-  // Init LCD
-  write_i2c(BUFF_SETUP, 11, LCD_ADDRESS);
-  LCD_clear();
-  Delay(1000);
-  // Init 7 segment display
-  init_SEGMENTS();
-}
-void PinCFG_Init(int funcnum){
-
-  PINSEL_CFG_Type PinCfg;
-  PinCfg.Funcnum = funcnum;
-  PinCfg.OpenDrain = 0;
-  PinCfg.Pinmode = 0;
-  PinCfg.Portnum = 0;
-  PinCfg.Pinnum = 15;
-  PINSEL_ConfigPin(&PinCfg);
-}
-void UART_Init2(void){
-  UART_CFG_Type UartCfg;
-  UartCfg.Baud_rate = 250000; //4 us = 1 bit, 250000 bps
-  UartCfg.Databits = UART_DATABIT_8; //8 data bits
-  UartCfg.Stopbits = UART_STOPBIT_2; //2 stop bits
-  UartCfg.Parity = UART_PARITY_NONE; //1 start bit
-  UART_Init((LPC_UART_TypeDef *) LPC_UART1, &UartCfg);
-}
-void I2C_Init2(void){
-  //configure mbed pins to work as I2C pins.
-  PINSEL_CFG_Type pincfg1;
-  pincfg1.Funcnum = 3;
-  pincfg1.OpenDrain = 0;
-  pincfg1.Pinmode = 0;
-  pincfg1.Pinnum = 0;
-  pincfg1.Portnum = 0;
-
-  PINSEL_CFG_Type pincfg2;
-  pincfg2.Funcnum = 3;
-  pincfg2.OpenDrain = 0;
-  pincfg2.Pinmode = 0;
-  pincfg2.Pinnum = 1;
-  pincfg2.Portnum = 0;
-  PINSEL_ConfigPin(&pincfg1);
-  PINSEL_ConfigPin(&pincfg2);
-
-  //Set the I2C controller clock rate (100kbits/s)
-  I2C_Init(LPC_I2C1, 100000);
-
-  //Enable I2C bus controller
-  I2C_Cmd(LPC_I2C1, ENABLE);
-}
-
-void SEGMENT_WriteFloat(double double_value, int zeros){
-  double value;
-  uint8_t no_of_digit = ceil(log10(double_value));
-  uint8_t dp_digit = 0;
-  int leading = 1;
-  double decimals = double_value - (int)floor(double_value);
-
-  if (zeros == 1){
-    //leading is opposite to zeros
-    leading = 0;
-  }
-
-  uint8_t dec_digit = 4 - no_of_digit;
-  decimals = decimals * pow(10, dec_digit);
-  double_value = double_value * pow(10, dec_digit);
-
-  if(no_of_digit > 4 || no_of_digit < 0){
-    //print("ERROR. MAX VALUE EXCEEDED");
-    value = 9999;
-    dp_digit = 4;
-    leading = 0;
-  }
-
-  value = double_value + decimals;
-
-  SEGMENT_WriteHidden(value, dp_digit, leading);
-}
-
-void read_i2c(char* buffer, int length, int address){
-  I2C_M_SETUP_Type setup;
-
-  setup.sl_addr7bit = address;
-  setup.tx_data = NULL;
-  setup.tx_length = 0;
-  setup.rx_data = buffer;
-  setup.rx_length = length;
-  setup.retransmissions_max = 0;
-
-  I2C_MasterTransferData(LPC_I2C1, &setup, I2C_TRANSFER_POLLING);
-}
-void write_i2c(char* buffer, int length, int address){
-  I2C_M_SETUP_Type setup;
-
-  setup.sl_addr7bit = address;
-  setup.tx_data = buffer;
-  setup.tx_length = length;
-  setup.rx_data = NULL;
-  setup.rx_length = 0;
-  setup.retransmissions_max = 0;
-
-  I2C_MasterTransferData(LPC_I2C1, &setup, I2C_TRANSFER_POLLING);
-}
-
-void get_keypad_press(char* read_buff){
-  write_i2c(BUFF_FF,1, 0x21);
-  int col = 0;
-  while(1){
-    write_i2c(&BUFF_COL[col],1,0x21);
-    read_i2c(read_buff, 1, 0x21);
-    if ((read_buff[0] & 0x0F) != 0x0F){
-        char out = read_buff[0];
-        while (1){
-          read_i2c(read_buff, 1, 0x21);
-          if ((read_buff[0] & 0x0F) == 0x0F){
-            read_buff[0] = out;
-            return;
-          }
-        }
-    }
-    col = (col+1) % 4;
-  }
 }
 
 void SEGMENT_WriteHidden(int value, uint8_t dp_digit, int leading){
@@ -422,7 +291,6 @@ void SEGMENT_WriteHidden(int value, uint8_t dp_digit, int leading){
     data[4] = SAA1064_SEGM[value];          // never suppress units zero
     if (dp_digit==4) {data[4] = data[4] | SAA1064_DP;} // Set decimal point
   }
-
  write_i2c(data, 5, EIGHT_SEG_ADDRESS);
 }
 
@@ -435,6 +303,157 @@ void SEGMENT_Write(int int_value, int zeros){
     leading = 0;
   }
   SEGMENT_WriteHidden(int_value, dp_digit, leading);
+}
+void SEGMENT_WriteFloat(double double_value, int zeros){
+  double value;
+  uint8_t no_of_digit = ceil(log10(double_value));
+  uint8_t dp_digit = 0;
+  int leading = 1;
+  double decimals = double_value - (int)floor(double_value);
+
+  if (zeros == 1){
+    //leading is opposite to zeros
+    leading = 0;
+  }
+
+
+  uint8_t dec_digit = 4 - no_of_digit;
+  decimals = decimals * pow(10, dec_digit);
+  double_value = double_value * pow(10, dec_digit);
+
+  if(no_of_digit > 4 || no_of_digit < 0){
+    print("ERROR. MAX VALUE EXCEEDED");
+    value = 9999;
+    dp_digit = 4;
+    leading = 0;
+  }
+
+  value = double_value + decimals;
+
+  SEGMENT_WriteHidden(value, dp_digit, leading);
+}
+
+/*void SysTick_Handler (void) {
+  SysTickCnt++;
+}
+void Delay (unsigned long tick) {
+  unsigned long systickcnt;
+  systickcnt = SysTickCnt;
+  while ((SysTickCnt - systickcnt) < tick);
+}*/
+
+void BreakFlagLow(void){LPC_UART1->LCR |= 0x40;}
+void BreakFlagHigh(void){LPC_UART1->LCR &= 0xBF;}
+
+void Full_Init(void){
+  SysTick_Config(SystemCoreClock/1000000 - 1);
+
+  // Init pins
+  PinCFG_Init(1);
+  // Init UART
+  UART_Init2();
+  //Enable TxD pin
+  UART_TxCmd((LPC_UART_TypeDef *) LPC_UART1, ENABLE);
+  // Init UART FIFO
+  UART_FIFO_CFG_Type FIFOCfg;
+  UART_FIFOConfigStructInit((UART_FIFO_CFG_Type *)&FIFOCfg); //default configuration
+  UART_FIFOConfig((LPC_UART_TypeDef *) LPC_UART1, (UART_FIFO_CFG_Type *) &FIFOCfg);
+  // Init I2C
+  I2C_Init2();
+  // Init LCD
+  write_i2c(BUFF_SETUP, 11, LCD_ADDRESS);
+  LCD_clear();
+  Delay(1000);
+  // Init 7 segment display
+  init_SEGMENTS();
+}
+void PinCFG_Init(int funcnum){
+
+  PINSEL_CFG_Type PinCfg;
+  PinCfg.Funcnum = funcnum;
+  PinCfg.OpenDrain = 0;
+  PinCfg.Pinmode = 0;
+  PinCfg.Portnum = 0;
+  PinCfg.Pinnum = 15;
+  PINSEL_ConfigPin(&PinCfg);
+}
+void UART_Init2(void){
+  UART_CFG_Type UartCfg;
+  UartCfg.Baud_rate = 250000; //4 us = 1 bit, 250000 bps
+  UartCfg.Databits = UART_DATABIT_8; //8 data bits
+  UartCfg.Stopbits = UART_STOPBIT_2; //2 stop bits
+  UartCfg.Parity = UART_PARITY_NONE; //1 start bit
+  UART_Init((LPC_UART_TypeDef *) LPC_UART1, &UartCfg);
+}
+void I2C_Init2(void){
+  //configure mbed pins to work as I2C pins.
+  PINSEL_CFG_Type pincfg1;
+  pincfg1.Funcnum = 3;
+  pincfg1.OpenDrain = 0;
+  pincfg1.Pinmode = 0;
+  pincfg1.Pinnum = 0;
+  pincfg1.Portnum = 0;
+
+  PINSEL_CFG_Type pincfg2;
+  pincfg2.Funcnum = 3;
+  pincfg2.OpenDrain = 0;
+  pincfg2.Pinmode = 0;
+  pincfg2.Pinnum = 1;
+  pincfg2.Portnum = 0;
+  PINSEL_ConfigPin(&pincfg1);
+  PINSEL_ConfigPin(&pincfg2);
+
+  //Set the I2C controller clock rate (100kbits/s)
+  I2C_Init(LPC_I2C1, 100000);
+
+  //Enable I2C bus controller
+  I2C_Cmd(LPC_I2C1, ENABLE);
+}
+
+void read_i2c(uint8_t* buffer, int length, int address){
+
+  I2C_M_SETUP_Type setup;
+
+  setup.sl_addr7bit = address;
+  setup.tx_data = NULL;
+  setup.tx_length = 0;
+  setup.rx_data = buffer;
+  setup.rx_length = length;
+  setup.retransmissions_max = 0;
+
+  I2C_MasterTransferData(LPC_I2C1, &setup, I2C_TRANSFER_POLLING);
+}
+void write_i2c(uint8_t* buffer, int length, int address){
+  I2C_M_SETUP_Type setup;
+
+  setup.sl_addr7bit = address;
+  setup.tx_data = buffer;
+  setup.tx_length = length;
+  setup.rx_data = NULL;
+  setup.rx_length = 0;
+  setup.retransmissions_max = 0;
+
+  I2C_MasterTransferData(LPC_I2C1, &setup, I2C_TRANSFER_POLLING);
+}
+
+void get_keypad_press(uint8_t* read_buff){
+  write_i2c(BUFF_FF,1, 0x21);
+  int col = 0;
+  while(1){
+    write_i2c(&BUFF_COL[col],1,0x21);
+    read_i2c(read_buff, 1, 0x21);
+    if ((read_buff[0] & 0x0F) != 0x0F){
+        uint8_t out = read_buff[0];
+        while (1){
+          read_i2c(read_buff, 1, 0x21);
+          if ((read_buff[0] & 0x0F) == 0x0F){
+            read_buff[0] = out;
+            return;
+          }
+        }
+    }
+    col = (col+1) % 4;
+  }
 }
 
 //sends one whole block of data.
@@ -480,9 +499,9 @@ void send_colours(uint8_t coloursRGB[][3], uint8_t length, uint32_t delay){
 
 void LCD_clear(void){
   int i;
-  char address[2];
+  uint8_t address[2];
   address[0] = 0x00;
-  char buff_char[2];
+  uint8_t buff_char[2];
   buff_char[0] = 0x40;
   for(i = 0; i < 16; i++){
     address[1] = 0x80 + i;
@@ -502,9 +521,9 @@ void printKeyToLCD(int rrcc, int LCDcount){
   int j = (rrcc >> 2) & 3;
   int i = rrcc & 3;
   int press = 0;
-  char address[2];
+  uint8_t address[2];
   address[0] = 0x00;
-  char buff_char[2];
+  uint8_t buff_char[2];
   buff_char[0] = 0x40;
 
   address[1] = 0x80 + LCDcount;
