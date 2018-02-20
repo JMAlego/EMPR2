@@ -187,6 +187,9 @@ void send_data_UART(int wait);
 void send_colours(uint8_t coloursRGB[][3], uint8_t length, uint32_t delay);
 void LCD_clear(void);
 void printKeyToLCD(int rrcc, int LCDcount);
+void SEGMENT_WriteHidden(int value, uint8_t dp_digit, int leading);
+void SEGMENT_Write(int int_value, int zeros);
+void SEGMENT_WriteFloat(double double_value, int zeros);
 
 
 
@@ -210,6 +213,7 @@ void init_SEGMENTS(void){
   //data[5] = SAA1064_ALL;                      // Digit 4: All Segments On
   write_i2c(data, 6, EIGHT_SEG_ADDRESS);
 }
+
 void SEGMENT_WriteHidden(int value, uint8_t dp_digit, int leading){
   uint8_t digit_value;
   uint8_t data[6];
@@ -287,9 +291,9 @@ void SEGMENT_WriteHidden(int value, uint8_t dp_digit, int leading){
     data[4] = SAA1064_SEGM[value];          // never suppress units zero
     if (dp_digit==4) {data[4] = data[4] | SAA1064_DP;} // Set decimal point
   }
-
  write_i2c(data, 5, EIGHT_SEG_ADDRESS);
 }
+
 void SEGMENT_Write(int int_value, int zeros){
   uint8_t dp_digit = 0;
   int leading = 1;
@@ -311,6 +315,7 @@ void SEGMENT_WriteFloat(double double_value, int zeros){
     //leading is opposite to zeros
     leading = 0;
   }
+
 
   uint8_t dec_digit = 4 - no_of_digit;
   decimals = decimals * pow(10, dec_digit);
@@ -359,6 +364,8 @@ void Full_Init(void){
   write_i2c(BUFF_SETUP, 11, LCD_ADDRESS);
   LCD_clear();
   Delay(1000);
+  // Init 7 segment display
+  init_SEGMENTS();
 }
 void PinCFG_Init(int funcnum){
 
@@ -404,6 +411,7 @@ void I2C_Init2(void){
 }
 
 void read_i2c(uint8_t* buffer, int length, int address){
+
   I2C_M_SETUP_Type setup;
 
   setup.sl_addr7bit = address;
@@ -446,33 +454,6 @@ void get_keypad_press(uint8_t* read_buff){
     }
     col = (col+1) % 4;
   }
-}
-
-uint8_t decode_keypad(uint8_t input){
-  uint8_t output; //0x0000rrcc
-  switch(input&0x0F){
-    case 0x07: output = 0;
-      break;
-    case 0x0B: output = 1;
-      break;
-    case 0x0D: output = 2;
-      break;
-    case 0x0E: output = 3;
-      break;
-    }
-  output = output << 2;
-  switch(input&0xF0){
-    case 0x70: output += 0;
-      break;
-    case 0xB0: output += 1;
-      break;
-    case 0xD0: output += 2;
-      break;
-    case 0xE0: output += 3;
-      break;
-  }
-
-  return output;
 }
 
 //sends one whole block of data.
