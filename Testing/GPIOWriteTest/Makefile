@@ -46,10 +46,10 @@ LDFLAGS=$(CMSISFL) -static -mcpu=cortex-m3 -mthumb -mthumb-interwork \
 LDFLAGS+=-L$(CMSIS)/lib -lDriversLPC17xxgnu
 
 # Name of the binary being built
-EXECNAME	= bin/GPIOWriteTest
+EXECNAME	= bin/Generator
 
 # Source files provided by the user to build the project
-OBJ		= GPIOWriteTest.o
+OBJ		= Generator.o
 
 # Commands handled by this makefile
 all: 	build

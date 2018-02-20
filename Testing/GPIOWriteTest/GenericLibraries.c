@@ -85,16 +85,70 @@
 #define _ASTERIX 0xAA
 #define _HASH 0xA3
 
+//Address Defines for SAA1064
+#define SAA1064_SA0 0x70
+#define SAA1064_SA1 0x72
+#define SAA1064_SA2 0x74
+#define SAA1064_SA3 0x76
+
+//Register Defines for SAA1064
+#define SAA1064_CTRL 0x00
+#define SAA1064_DIG1 0x01
+#define SAA1064_DIG2 0x02
+#define SAA1064_DIG3 0x03
+#define SAA1064_DIG4 0x04
+
+//Control Register Defines for SAA1064
+//Static display (2 digits) or Multiplexed (4 digits)
+#define SAA1064_MPX  0x01
+//Digits 1 and 2 On
+#define SAA1064_B0   0x02
+//Digits 3 and 4 On
+#define SAA1064_B1   0x04
+//Intensity of display
+#define SAA1064_INT0 0x00
+#define SAA1064_INT1 0x10
+#define SAA1064_INT2 0x20
+#define SAA1064_INT3 0x30
+#define SAA1064_INT4 0x40
+#define SAA1064_INT5 0x50
+#define SAA1064_INT6 0x60
+#define SAA1064_INT7 0x70
+
+//Default Mode: Multiplex On, All Digits On
+#define SAA1064_CTRL_DEF (SAA1064_MPX | SAA1064_B0 | SAA1064_B1)
+
+//Pin Defines for SAA1064
+#define D_L0                 0x01
+#define D_L1                 0x02
+#define D_L2                 0x04
+#define D_L3                 0x08
+#define D_L4                 0x10
+#define D_L5                 0x20
+#define D_L6                 0x40
+#define D_L7                 0x80
+
+const uint8_t SAA1064_SEGM[] = {0x3F,0x06, 0x5B,0x4F,
+                                0x66,0x6D,0x7D,0x07,
+                                0x7F,0x6F,0x77,0x7C,
+                                0x39,0x5E,0x79,0x71};
+
+#define SAA1064_DP              0x80   //Decimal Point
+#define SAA1064_MINUS           0x40   //Minus Sign
+#define SAA1064_BLNK            0x00   //Blank Digit
+#define SAA1064_ALL             0xFF   //All Segments On
+
+#define EIGHT_SEG_ADDRESS 0x38
+
 const char BUFF_FF[1] = {0xFF};
 const char BUFF_COL[4] = {0x7F,0xBF,0xDF,0xEF};
 const char BUFF_SETUP[11] = {0x00, 0x34, 0x0C, 0x06, 0x35, 0x04, 0x10, 0x42, 0x9F, 0x34, 0x02};
 const char BUFF_HELLO_WORLD[11] = {0xC8, 0xC5, 0xCC, 0xCC, 0xCF, 0xA0, 0xD7, 0xCF, 0xD2, 0xCC, 0xC4};
-uint8_t read_buff[0];
 volatile unsigned long SysTickCnt;
 static int LCDcount = 0;
 volatile uint8_t data[512];
 static uint8_t lamp_rgb_address[3] = {0,1,2};
-const uint8_t LOOKUP[4][4] = {{0xB1, 0xB2, 0xB3, 0xC1}, //1,2,3,A
+const uint8_t KEY_TO_LCD_LOOKUP[4][4] = {{0xB1, 0xB2, 0xB3, 0xC1}, //1,2,3,A
                             {0xB4, 0xB5, 0xB6, 0xC2},   //4.5.6.B
                             {0xB7, 0xB8, 0xB9, 0xC3},   //7,8,9,C
                             {0xAA, 0xB0, 0xA3, 0xC4}};  //*,0.#,D
@@ -116,9 +170,11 @@ void write_i2c(char* buffer, int length, int address);
 void set_basic_data(void);
 void send_colours(uint8_t coloursRGB[][3], uint8_t length, uint32_t delay);
 void LCD_clear(void);
-void printKeyToLCD(int rrcc, int LCDcount)
-
-
+void printKeyToLCD(int rrcc, int LCDcount);
+void init_SEGMENTS();
+void SEGMENT_WriteHidden(int value, uint8_t dp_digit, int leading);
+void SEGMENT_Write(int int_value, int zeros);
+void SEGMENT_WriteFloat(double double_value, int zeros);
 
 void SysTick_Handler (void) {
   SysTickCnt++;
@@ -131,6 +187,25 @@ void Delay (unsigned long tick) {
 
 void BreakFlagLow(void){LPC_UART1->LCR |= 0x40;}
 void BreakFlagHigh(void){LPC_UART1->LCR &= 0xBF;}
+
+
+void init_SEGMENTS(){
+  uint8_t data[6];
+
+  data[0] = SAA1064_CTRL;                     // Select Control Reg
+  data[1] = SAA1064_CTRL_DEF | SAA1064_INT3;  // Init Control Reg
+  data[2] = SAA1064_BLNK;                     // Digit 1: All Segments Off
+  data[3] = SAA1064_BLNK;                     // Digit 2: All Segments Off
+  data[4] = SAA1064_BLNK;                     // Digit 3: All Segments Off
+  data[5] = SAA1064_BLNK;                     // Digit 4: All Segments Off
+
+  //data[2] = SAA1064_ALL;                      // Digit 1: All Segments On
+  //data[3] = SAA1064_ALL;                      // Digit 2: All Segments On
+  //data[4] = SAA1064_ALL;                      // Digit 3: All Segments On
+  //data[5] = SAA1064_ALL;                      // Digit 4: All Segments On
+
+  write_i2c(data, 6, EIGHT_SEG_ADDRESS);
+}
 
 void Full_Init(void){
   SysTick_Config(SystemCoreClock/1000000 - 1);
@@ -151,6 +226,8 @@ void Full_Init(void){
   write_i2c(BUFF_SETUP, 11, LCD_ADDRESS);
   LCD_clear();
   Delay(1000);
+  // Init 7 segment display
+  init_SEGMENTS();
 }
 void PinCFG_Init(int funcnum){
 
@@ -193,6 +270,34 @@ void I2C_Init2(void){
 
   //Enable I2C bus controller
   I2C_Cmd(LPC_I2C1, ENABLE);
+}
+
+void SEGMENT_WriteFloat(double double_value, int zeros){
+  double value;
+  uint8_t no_of_digit = ceil(log10(double_value));
+  uint8_t dp_digit = 0;
+  int leading = 1;
+  double decimals = double_value - (int)floor(double_value);
+
+  if (zeros == 1){
+    //leading is opposite to zeros
+    leading = 0;
+  }
+
+  uint8_t dec_digit = 4 - no_of_digit;
+  decimals = decimals * pow(10, dec_digit);
+  double_value = double_value * pow(10, dec_digit);
+
+  if(no_of_digit > 4 || no_of_digit < 0){
+    //print("ERROR. MAX VALUE EXCEEDED");
+    value = 9999;
+    dp_digit = 4;
+    leading = 0;
+  }
+
+  value = double_value + decimals;
+
+  SEGMENT_WriteHidden(value, dp_digit, leading);
 }
 
 void read_i2c(char* buffer, int length, int address){
@@ -240,32 +345,96 @@ void get_keypad_press(char* read_buff){
   }
 }
 
-uint8_t decode_keypad(uint8_t input){
-  uint8_t output; //0x0000rrcc
-  switch(input&0x0F){
-    case 0x07: output = 0;
-      break;
-    case 0x0B: output = 1;
-      break;
-    case 0x0D: output = 2;
-      break;
-    case 0x0E: output = 3;
-      break;
-    }
+void SEGMENT_WriteHidden(int value, uint8_t dp_digit, int leading){
+  uint8_t digit_value;
+  uint8_t data[6];
+  data[0] = SAA1064_DIG1;                     // Select Digit1 Reg
 
-  output = output << 2;
-  switch(input&0xF0){
-    case 0x70: output += 0;
-      break;
-    case 0xB0: output += 1;
-      break;
-    case 0xD0: output += 2;
-      break;
-    case 0xE0: output += 3;
-      break;
+  // limit to valid range
+  if (value >= 9999) value = 9999;
+  if (value <= -999) value = -999;
+
+  if (value >= 0) {
+    // value 0...9999
+    digit_value = value/1000; // compute thousands
+    value = value % 1000;     // compute remainder
+    if ((digit_value==0) && !(dp_digit==1) && leading )
+      data[1] = SAA1064_BLNK;               // suppress leading zero
+    else {
+      data[1] = SAA1064_SEGM[digit_value];
+      leading = 0;                      // dont suppress zero's
+    }
+    if (dp_digit==1) {data[1] = data[1] | SAA1064_DP;} // Set decimal point
+
+
+    digit_value = value/100;  // compute hundreds
+    value = value % 100;      // compute remainder
+    if ((digit_value==0) && !(dp_digit==2) && leading)
+      data[2] = SAA1064_BLNK;               // suppress leading zero
+    else {
+      data[2] = SAA1064_SEGM[digit_value];
+      leading = 0;                      // dont suppress zero's
+    }
+    if (dp_digit==2) {data[2] = data[2] | SAA1064_DP;} // Set decimal point
+
+    digit_value = value/10;   // compute tens
+    value = value % 10;       // compute remainder
+    if ((digit_value==0) && !(dp_digit==3) && leading)
+      data[3] = SAA1064_BLNK;               // suppress leading zero
+    else {
+      data[3] = SAA1064_SEGM[digit_value];
+      //leading = 0;                      // dont suppress zero's
+    }
+    if (dp_digit==3) {data[3] = data[3] | SAA1064_DP;} // Set decimal point
+
+    //digit_value = value;      // compute units
+    data[4] = SAA1064_SEGM[value];          // never suppress units zero
+    if (dp_digit==4) {data[4] = data[4] | SAA1064_DP;} // Set decimal point
+
+  }
+  else {
+    // value -999...-1
+    value = -value;
+    data[1] = SAA1064_MINUS;               // Sign
+    if (dp_digit==1) {data[1] = data[1] | SAA1064_DP;} // Set decimal point
+
+    digit_value = value/100;  // compute hundreds
+    value = value % 100;      // compute remainder
+    if ((digit_value==0) && !(dp_digit==2) && leading)
+      data[2] = SAA1064_BLNK;               // suppress leading zero
+    else {
+      data[2] = SAA1064_SEGM[digit_value];
+      leading = 0;                      // dont suppress zero's
+    }
+    if (dp_digit==2) {data[2] = data[2] | SAA1064_DP;} // Set decimal point
+
+    digit_value = value/10;   // compute tens
+    value = value % 10;       // compute remainder
+    if ((digit_value==0) && !(dp_digit==3) && leading)
+      data[3] = SAA1064_BLNK;               // suppress leading zero
+    else {
+      data[3] = SAA1064_SEGM[digit_value];
+      //leading = 0;                      // dont suppress zero's
+    }
+    if (dp_digit==3) {data[3] = data[3] | SAA1064_DP;} // Set decimal point
+
+    //digit_value = value;      // compute units
+    data[4] = SAA1064_SEGM[value];          // never suppress units zero
+    if (dp_digit==4) {data[4] = data[4] | SAA1064_DP;} // Set decimal point
   }
 
-  return output;
+ write_i2c(data, 5, EIGHT_SEG_ADDRESS);
+}
+
+void SEGMENT_Write(int int_value, int zeros){
+  uint8_t dp_digit = 0;
+  int leading = 1;
+
+  if (zeros == 1){
+    //leading is opposite to zeros
+    leading = 0;
+  }
+  SEGMENT_WriteHidden(int_value, dp_digit, leading);
 }
 
 //sends one whole block of data.
@@ -339,7 +508,7 @@ void printKeyToLCD(int rrcc, int LCDcount){
   buff_char[0] = 0x40;
 
   address[1] = 0x80 + LCDcount;
-  buff_char[1] = LOOKUP[j][i];
+  buff_char[1] = KEY_TO_LCD_LOOKUP[j][i];
   write_i2c(address, 2, LCD_ADDRESS);
   write_i2c(buff_char, 2, LCD_ADDRESS);
   if (LCDcount == 16){
