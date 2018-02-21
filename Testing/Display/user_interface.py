@@ -13,6 +13,7 @@ class DisplayUI(Gtk.Window):
         self.ui_running = Value("b", 1)
         self.reset_count = Value("b", 0)
         self.packet_last_value = Array("B", list(range(512)))
+        self.packet_snapshot = self.packet_last_value[:]
         self.mode = "SINGLE_CAPTURE"
         Gtk.Window.__init__(self, title="EMPR PC Display")
         self.set_default_size(800, 600)
@@ -99,7 +100,7 @@ class DisplayUI(Gtk.Window):
 
         self.add(hbox)
 
-        self.timeout_id = GObject.timeout_add(25, self.on_timeout, None)
+        self.timeout_id = GObject.timeout_add(100, self.on_timeout, None)
 
     def update_data(self, data):
         self.packet_data.get_buffer().set_text(data)
@@ -107,18 +108,22 @@ class DisplayUI(Gtk.Window):
     def on_timeout(self, event=None):
         self.packet_count_label.set_text("Packet Count: " + str(self.packet_count_value.value))
         if self.mode == "SINGLE_CAPTURE":
+            self.packet_snapshot = self.packet_last_value[:]
             index = 0
-            for value in self.packet_last_value[:]:
+            for value in self.packet_snapshot:
                 self.packet_data[index] = [str(index + 1), "0x" + hex(value)[2:].rjust(2, "0")]
                 index += 1
+            for cid, child in self.channel_windows.items():
+                child.update_values()
             self.mode = "WAITING"
         if self.mode == "MULTI_CAPTURE":
+            self.packet_snapshot = self.packet_last_value[:]
             index = 0
-            for value in self.packet_last_value[:]:
+            for value in self.packet_snapshot:
                 self.packet_data[index] = [str(index + 1), "0x" + hex(value)[2:].rjust(2, "0")]
                 index += 1
-        for cid, child in self.channel_windows.items():
-            child.update_values()
+            for cid, child in self.channel_windows.items():
+                child.update_values()
         return True
 
     def btn_reset_count(self, event):

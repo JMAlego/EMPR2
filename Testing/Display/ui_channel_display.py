@@ -69,7 +69,7 @@ class UIChannelDisplay(Gtk.Window):
 
             label = Gtk.Label(label="Channel Colour Hex Code")
             vbox.pack_start(label, False, True, 0)
-            
+
             label = Gtk.Label(label="#" + hex_code)
             self.colour_label = label
             vbox.pack_start(label, False, True, 0)
@@ -84,17 +84,17 @@ class UIChannelDisplay(Gtk.Window):
 
     def update_values(self):
         index = 0
-        for value in self.parent.packet_last_value[self.start_slot-1:self.start_slot + self.channel_size - 1]:
+        for value in self.parent.packet_snapshot[self.start_slot-1:self.start_slot + self.channel_size - 1]:
             self.packet_data[index] = [str(index + self.start_slot), "0x" + hex(value)[2:].rjust(2, "0")]
             index += 1
         if self.colour_label is not None and (self.channel_size == 3 or 9 > self.channel_size > 6):
             hex_code = "ffffff"
             if self.channel_size == 3:
-                values = self.parent.packet_last_value[self.start_slot-1:self.start_slot + 2]
+                values = self.parent.packet_snapshot[self.start_slot-1:self.start_slot + 2]
                 rgb = [hex(value)[2:].rjust(2, "0") for value in values]
                 hex_code = "".join(rgb)
             if self.channel_size > 3:
-                values = self.parent.packet_last_value[self.start_slot-1:self.start_slot + 3]
+                values = self.parent.packet_snapshot[self.start_slot-1:self.start_slot + 3]
                 rgb = [hex(int(float(value)*(float(values[0])/255.0)))[2:].rjust(2, "0") for value in values[1:4]]
                 hex_code = "".join(rgb)
             color = Gdk.color_parse("#" + hex_code)
@@ -103,6 +103,7 @@ class UIChannelDisplay(Gtk.Window):
             self.colour_area.override_background_color(0, rgba)
 
             self.colour_label = Gtk.Label(label="#" + hex_code)
+        return True
 
     def on_close(self, event):
         del self.parent.channel_windows[self.id]
