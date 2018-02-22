@@ -1,20 +1,18 @@
 //How to use github (Jacob ignore this pls_)
 //git pull; git add . ; git commit -m "message" ; git push
 
-
-#include "lpc17xx_gpio.h"
+#include <lpc17xx_gpio.h>
 #include "lpc17xx_uart.h"
 #include "lpc17xx_pinsel.h"
 #include "lpc17xx_i2c.h"
 #include <stdlib.h>
 #include <stdio.h>
-#include <lpc17xx_timer.h>
+#include "lpc17xx_timer.h"
 #include "lib/empr_lib_utilities.c"
 #include "lib/empr_lib_lcd.c"
 #include "lib/empr_lib_keypad.c"
 #include "lib/empr_lib_serial.c"
 #include <string.h>
-
 
 
 #define SENDING 0x40040
@@ -26,73 +24,8 @@
 #define WAIT 1
 #define DONT_WAIT 0
 #define LCD_ADDRESS 0x3B
-
-#define _SPACE 0xA0
-#define _A 0xC1
-#define _B 0xC2
-#define _C 0xC3
-#define _D 0xC4
-#define _E 0xC5
-#define _F 0xC6
-#define _G 0xC7
-#define _H 0xC8
-#define _I 0xC9
-#define _J 0xCA
-#define _K 0xCB
-#define _L 0xCC
-#define _M 0xCD
-#define _N 0xCE
-#define _O 0xCF
-#define _P 0xD0
-#define _Q 0xD1
-#define _R 0xD2
-#define _S 0xD3
-#define _T 0xD4
-#define _U 0xD5
-#define _V 0xD6
-#define _W 0xD7
-#define _X 0xD8
-#define _Y 0xD9
-#define _Z 0xDA
-#define _0 0xB0
-#define _1 0xB1
-#define _2 0xB2
-#define _3 0xB3
-#define _4 0xB4
-#define _5 0xB5
-#define _6 0xB6
-#define _7 0xB7
-#define _8 0xB8
-#define _9 0xB9
-#define _a 0x61
-#define _b 0x62
-#define _c 0x63
-#define _d 0x64
-#define _e 0x65
-#define _f 0x66
-#define _g 0x67
-#define _h 0x68
-#define _i 0x69
-#define _j 0x6A
-#define _k 0x6B
-#define _l 0x6C
-#define _m 0x6D
-#define _n 0x6E
-#define _o 0x6F
-#define _p 0x70
-#define _q 0x71
-#define _r 0x72
-#define _s 0x73
-#define _t 0x74
-#define _u 0x75
-#define _v 0x76
-#define _w 0x77
-#define _x 0x78
-#define _y 0x79
-#define _z 0x7A
-#define _ASTERIX 0xAA
-#define _HASH 0xA3
-
+#define LCD_LINE1 0x80
+#define LCD_LINE2 0xC0
 
 //Address Defines for SAA1064
 #define SAA1064_SA0 0x70
@@ -155,17 +88,17 @@ const uint8_t SAA1064_SEGM[] = {0x3F,0x06, 0x5B,0x4F,
 const uint8_t BUFF_FF[1] = {0xFF};
 const uint8_t BUFF_COL[4] = {0x7F,0xBF,0xDF,0xEF};
 const uint8_t BUFF_SETUP[11] = {0x00, 0x34, 0x0C, 0x06, 0x35, 0x04, 0x10, 0x42, 0x9F, 0x34, 0x02};
-const uint8_t BUFF_HELLO_WORLD[11] = {0xC8, 0xC5, 0xCC, 0xCC, 0xCF, 0xA0, 0xD7, 0xCF, 0xD2, 0xCC, 0xC4};
 volatile unsigned long SysTickCnt;
-static int LCDcount = 0;
 volatile uint8_t data[512];
 static uint8_t lamp_rgb_address[3] = {0,1,2};
 const uint8_t KEY_TO_LCD_LOOKUP[4][4] = {{0xB1, 0xB2, 0xB3, 0xC1}, //1,2,3,A
                             {0xB4, 0xB5, 0xB6, 0xC2},   //4.5.6.B
                             {0xB7, 0xB8, 0xB9, 0xC3},   //7,8,9,C
                             {0xAA, 0xB0, 0xA3, 0xC4}};  //*,0.#,D
+static uint8_t LCD_buffer[32] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
 
-void print(char string[]);
+
+void print(uint8_t string[]);
 void init_SEGMENTS(void);
 void SEGMENT_WriteFloat(double double_value, int zeros);
 void SEGMENT_WriteHidden(int value, uint8_t dp_digit, int leading);
@@ -186,7 +119,11 @@ void set_basic_data(void);
 void send_data_UART(int wait);
 void send_colours(uint8_t coloursRGB[][3], uint8_t length, uint32_t delay);
 void LCD_clear(void);
-void printKeyToLCD(int rrcc, int LCDcount);
+void printKeyToLCD(int rrcc, int* LCDcount);
+void display_LCD(uint8_t string[], uint8_t LCD_address);
+void loadToLCDbuffer(uint8_t buff[], uint8_t length, uint8_t* LCDcounter);
+void outputLCDbuff(void);
+uint8_t stringToLCD(uint8_t buff[], uint8_t out_buff[]);
 void SEGMENT_WriteHidden(int value, uint8_t dp_digit, int leading);
 void SEGMENT_Write(int int_value, int zeros);
 void SEGMENT_WriteFloat(double double_value, int zeros);
@@ -194,7 +131,7 @@ void SEGMENT_WriteFloat(double double_value, int zeros);
 
 
 
-void print(char string[]){
+void print(uint8_t string[]){
   UART_Send(LPC_UART0, (uint8_t *) string, EL_SERIAL_SizeOfString((uint8_t *) string), BLOCKING);
 }
 void init_SEGMENTS(void){
@@ -544,23 +481,87 @@ void LCD_clear(void){
   }
   Delay(1000);
 }
-void printKeyToLCD(int rrcc, int LCDcount){
-  int j = (rrcc >> 2) & 3;
-  int i = rrcc & 3;
+void printKeyToLCD(int rrcc, int* LCDcounter){
+  int i = (rrcc >> 2) & 3;
+  int j = rrcc & 3;
   int press = 0;
   uint8_t address[2];
   address[0] = 0x00;
   uint8_t buff_char[2];
   buff_char[0] = 0x40;
 
-  address[1] = 0x80 + LCDcount;
-  buff_char[1] = KEY_TO_LCD_LOOKUP[j][i];
+  address[1] = 0x80 + *LCDcounter;
+  buff_char[1] = KEY_TO_LCD_LOOKUP[i][j];
   write_i2c(address, 2, LCD_ADDRESS);
   write_i2c(buff_char, 2, LCD_ADDRESS);
-  if (LCDcount == 16){
-    LCDcount = 40;
-  } else if (LCDcount == 56) {
-    LCDcount = 0;
+
+  *LCDcounter = (*LCDcounter + 1) % 56;
+  if (*LCDcounter & 16) *LCDcounter = 40;
+}
+uint8_t stringToLCD(uint8_t buff[], uint8_t out_buff[]){
+  uint8_t i;
+  while (1){
+    //Uppercase letters
+    if (buff[i] >= 65 && buff[i] <= 90){
+      out_buff[i] = buff[i] + 128;
+    }
+    //Number characters
+    else if (buff[i] >= 48 && buff[i] <= 57){
+      out_buff[i] = buff[i] + 128;
+    }
+    //Lowercase letters
+    else if (buff[i] >= 97 && buff[i] <= 122) {
+      out_buff[i] = buff[i];
+    }
+    //Other Symbols
+    else {
+      switch (buff[i]){
+        case ' ': out_buff[i] = 0xA0; break;
+        case '*': out_buff[i] = 170; break;
+        case '#': out_buff[i] = 163; break;
+        case ':': out_buff[i] = 186; break;
+        case '.': out_buff[i] = 174; break;
+        case ',': out_buff[i] = 172; break;
+        case '-': out_buff[i] = 173; break;
+        case '>': out_buff[i] = 190; break;
+        default:
+          return i;
+      }
+    }
+    i++;
   }
-  LCDcount++;
+}
+void loadToLCDbuffer(uint8_t buff[], uint8_t length, uint8_t* LCDcounter){
+  int i;
+  for (i = 0; i < length; i++){
+    LCD_buffer[*LCDcounter + i] = buff[i];
+  }
+}
+void outputLCDbuff(void){
+  uint8_t address[2];
+  address[0] = 0x00;
+  uint8_t buff_char[2];
+  buff_char[0] = 0x40;
+
+  int i;
+  for (i = 0; i < 16; i++){
+    address[1] = 0x80 + i;
+    buff_char[1] = LCD_buffer[i];
+    write_i2c(address, 2, LCD_ADDRESS);
+    write_i2c(buff_char, 2, LCD_ADDRESS);
+  }
+  for (i = 0; i < 16; i++){
+    address[1] = 0xC0 + i;
+    buff_char[1] = LCD_buffer[i + 16];
+    write_i2c(address, 2, LCD_ADDRESS);
+    write_i2c(buff_char, 2, LCD_ADDRESS);
+  }
+}
+void display_LCD(uint8_t string[], uint8_t LCD_address){
+  uint8_t LCDcounter = LCD_address;
+  uint8_t* buff = string;
+  uint8_t out_buff[32] = "                                 ";
+  uint8_t str_length = stringToLCD(buff, out_buff);
+  loadToLCDbuffer(out_buff, str_length, &LCDcounter);
+  outputLCDbuff();
 }

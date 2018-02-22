@@ -52,7 +52,7 @@ EXECNAME	= bin/Generator
 OBJ		= Generator.o
 
 # Commands handled by this makefile
-all: 	build
+all: 	clean  build
 	@echo "Build finished"
 
 build: $(OBJ)

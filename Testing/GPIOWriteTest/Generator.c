@@ -1,7 +1,7 @@
-#include <GenericLibraries.c>
+#include "GenericLibraries.c"
 
 #define setdata(int1,int2,int3) data[0] = int1; data[1] = int2; data[2] = int3
-#define _cb(no,com) case no: com; break;
+#define _cb(no,com) case no: {com;break;}
 #define menu(com1, com2, com3, com4, com5, \
   com6, com7, com8, com9, com10, com11,\
   com12, com13, com14, com15, com16) \
@@ -16,15 +16,17 @@
 
 uint8_t char_buff[1];
 uint8_t read_buff[0];
+uint8_t out_buff[32];
 uint8_t colour[9][3];
 uint8_t* sequence[4][16];
+static uint8_t LCDcount = 0;
 
+////////////////////////////////////////////////////////////////////////////////
 
-// non-state functions
+// Non-state functions
 uint8_t navigate(void);
 void display_colour(uint8_t number);
 void display_sequence(uint8_t number); // printKeyToLCD(number,LCDcount);
-
 
 // States
 void define_colour(uint8_t number);
@@ -33,6 +35,14 @@ void main_menu(void);
 void def_menu(void);
 void opt_menu(void);
 
+/////////////////////////////////////////////////////////////////////////////////
+
+//
+void write_input_number(uint number_input[3]){
+  
+}
+
+// Non-state functions
 
 uint8_t navigate(void){
   get_keypad_press(read_buff);
@@ -62,27 +72,63 @@ void display_sequence(uint8_t number){
 
 // States
 void define_colour(uint8_t number){
+  //LCD Display
+  uint8_t string[15];
+  sprintf(string,"Col %d: VAL: --- SAVE rgb ->A,B,C", number);
+  display_LCD(string,0);
 
-  display_colour(9-number);
-  printKeyToLCD(number,LCDcount);
+  uint8_t number_input[3];
+  uint8_t in = 2;
 
-  //LCD Display:
-    //  COL n: VAL: ---
-    //  SAVE: A,B,C->RGB
-
-  //menu(
-    //LCD type 1, val = defmathfunc(1)
-    //LCD type 2, val = defmathfunc(2)
-    //... Ditto for all number keys
-    //LCD write "Saved to R Value"; delay; R = val;
-
+  input:
+  while(in > 0){
+    menu(
+      display_LCD("1",12+in); number_input[in] = 1; in--,
+      display_LCD("2",12+in); number_input[in] = 2; in--,
+      display_LCD("3",12+in); number_input[in] = 3; in--,
+      ,
+      display_LCD("4",12+in); number_input[in] = 4; in--,
+      display_LCD("5",12+in); number_input[in] = 5; in--,
+      display_LCD("6",12+in); number_input[in] = 6; in--,
+      ,
+      display_LCD("7",12+in); number_input[in] = 7; in--,
+      display_LCD("8",12+in); number_input[in] = 8; in--,
+      display_LCD("9",12+in); number_input[in] = 9; in--,
+      display_LCD("---",12);
+        number_input[0]=0;
+        number_input[1]=0;
+        number_input[2]=0;
+        in = 2,
+      display_LCD("0",12+in); number_input[in] = 0; in--,
+      ,
+      ,
+    );
+  }
+  menu(
+      ,
+      ,
+      ,
+      ,
+      ,
+      ,
+      ,
+      ,
+      ,
+      ,
+      ,
+      ,
+      ,
+      ,
+      ,
+  );
+  goto input;
 }
 void define_sequence(uint8_t number){
-  display_sequence(number);
+
 }
 
 void def_menu(void){
-  //Display LCD
+  display_LCD("DEF: 1-9 or A-D *:DISP ALL #:CXL",0);
 
   while(1) menu(
     define_colour(1),
@@ -108,6 +154,9 @@ void opt_menu(void){
 }
 void main_menu(void){
   //Display LCD
+  display_LCD("1-9:Col, A-D:Seq", 0);
+  display_LCD("*: Def, #:Repeat", 16);
+
 
   while (1) menu(
     display_colour(0),
@@ -122,9 +171,9 @@ void main_menu(void){
     display_colour(7),
     display_colour(8),
     display_sequence(2),
-    def_menu(),
+    def_menu(); return,
     ,//TODO ZERO,
-    opt_menu(),
+    opt_menu(); return,
     display_sequence(3)
   );
 }
@@ -160,6 +209,7 @@ int main(void){
     sequence[0][i] = colour[i];
   }
 
+
   /* //DEBUG LCD and keypad
   LCD_clear();
   while(1){
@@ -171,13 +221,10 @@ int main(void){
 
 
 
-
-  LCD_clear();
-
-
+  //LCD_clear();
 
 
   //write_i2c(char_buff,2,LCD_ADDRESS);
 
-  main_menu();
+  while(1) main_menu();
 }
