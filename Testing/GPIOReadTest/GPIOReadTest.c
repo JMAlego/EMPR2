@@ -43,7 +43,7 @@ void EL_SERIAL_Init(void)
   PINSEL_ConfigPin(&PinCfg);
 
   UART_CFG_Type UARTCfg;
-  UARTCfg.Baud_rate = 256000;
+  UARTCfg.Baud_rate = 9600;
   UART_FIFO_CFG_Type FIFOCfg;
   UART_ConfigStructInit(&UARTCfg);
   UART_FIFOConfigStructInit(&FIFOCfg);

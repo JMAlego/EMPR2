@@ -2,13 +2,15 @@
 
 from threading import Semaphore
 import sys, os
+import serial
 
 class MonitorInterface(object):
     inst_index = 0
 
     def __init__(self, tty_location="/dev/ttyACM0"):
         try:
-            self.tty_handle = os.open(tty_location, os.O_RDWR)
+            self.tty_handle = serial.Serial(tty_location, baudrate=9600, parity=serial.PARITY_NONE)
+            #self.tty_handle = os.open(tty_location, os.O_RDWR)
         except IOError:
             raise Exception("Unable to open TTY")
         self.buffer = ""
@@ -21,7 +23,8 @@ class MonitorInterface(object):
     def run(self):
         self.running = True
         while self.running:
-            self.buffer += os.read(self.tty_handle, 16).decode("ascii").replace("\n","").replace("\r","").replace("\0","")
+            #self.buffer += os.read(self.tty_handle, 16).decode("ascii").replace("\n","").replace("\r","").replace("\0","")
+            self.buffer += self.tty_handle.readline().decode("ascii", "ignore").replace("\n","").replace("\r","").replace("\0","")
 
             exclamation_index = self.buffer.index("!") if "!" in self.buffer else -1
             if(exclamation_index > 0):
