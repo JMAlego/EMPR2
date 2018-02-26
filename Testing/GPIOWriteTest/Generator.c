@@ -12,6 +12,7 @@
     _cb(8, com9)  _cb(9, com10) _cb(10,com11) _cb(11,com12)\
     _cb(12,com13) _cb(13,com14) _cb(14,com15) _cb(15,com16)}\
   } while(0)
+#define clear_number_input() number_input[0] = 0;number_input[1] = 0;number_input[2] = 0; in_count = 0
 #define DELAY 500000
 
 uint8_t char_buff[1];
@@ -37,9 +38,21 @@ void opt_menu(void);
 
 /////////////////////////////////////////////////////////////////////////////////
 
-//
-void write_input_number(uint number_input[3]){
-  
+//maths and extra stuff
+uint8_t input_translate(uint8_t number_input[3], uint8_t in_count){
+  uint16_t output = 0;
+  if(in_count == 0){
+    output = 0;
+  } else if (in_count == 1){
+    output = number_input[0];
+  } else if (in_count == 2){
+    output = (number_input[0] * 10) + number_input[1];
+  } else if (in_count == 3){
+    output = (number_input[0] * 100) + (number_input[1] * 10) + number_input[2];
+  }
+  if (output > 255) output = 255;
+
+  return (uint8_t) output;
 }
 
 // Non-state functions
@@ -73,114 +86,164 @@ void display_sequence(uint8_t number){
 // States
 void define_colour(uint8_t number){
   //LCD Display
-  uint8_t string[15];
+  //return;
+  uint8_t string[32];
+  display_LCD("Set rgb ->A,B,C,Save to mem: ->D",0);
+  Delay(1000000);
   sprintf(string,"Col %d: VAL: --- SAVE rgb ->A,B,C", number);
   display_LCD(string,0);
+  Delay(1000000);
 
   uint8_t number_input[3];
-  uint8_t in = 2;
+  number_input[0] = 0;
+  number_input[1] = 0;
+  number_input[2] = 0;
+  uint8_t r = 0;
+  uint8_t g = 0;
+  uint8_t b = 0;
+  uint8_t r_str[3];
+  uint8_t g_str[3];
+  uint8_t b_str[3];
+  uint8_t in_count = 0;
+  uint8_t reset = 0;
 
-  input:
-  while(in > 0){
+  while(1){
+    if (reset==1){
+      sprintf(string,"Col %d: VAL: --- SAVE rgb ->A,B,C", number);
+      display_LCD(string,0);
+      clear_number_input();
+      reset = 0;
+    }
+
     menu(
-      display_LCD("1",12+in); number_input[in] = 1; in--,
-      display_LCD("2",12+in); number_input[in] = 2; in--,
-      display_LCD("3",12+in); number_input[in] = 3; in--,
-      ,
-      display_LCD("4",12+in); number_input[in] = 4; in--,
-      display_LCD("5",12+in); number_input[in] = 5; in--,
-      display_LCD("6",12+in); number_input[in] = 6; in--,
-      ,
-      display_LCD("7",12+in); number_input[in] = 7; in--,
-      display_LCD("8",12+in); number_input[in] = 8; in--,
-      display_LCD("9",12+in); number_input[in] = 9; in--,
+      if(in_count < 3) display_LCD("1",12+in_count); number_input[in_count] = 1; in_count++,
+      if(in_count < 3) display_LCD("2",12+in_count); number_input[in_count] = 2; in_count++,
+      if(in_count < 3) display_LCD("3",12+in_count); number_input[in_count] = 3; in_count++,
+      r = input_translate(number_input, in_count);
+        display_LCD("Saved RED val.  Save to mem: ->D",0);
+        Delay(2000000);
+        reset = 1,
+      if(in_count < 3) display_LCD("4",12+in_count); number_input[in_count] = 4; in_count++,
+      if(in_count < 3) display_LCD("5",12+in_count); number_input[in_count] = 5; in_count++,
+      if(in_count < 3) display_LCD("6",12+in_count); number_input[in_count] = 6; in_count++,
+      g = input_translate(number_input, in_count);
+        display_LCD("Saved GREEN val.Save to mem: ->D",0);
+        Delay(2000000);
+        reset = 1,
+      if(in_count < 3) display_LCD("7",12+in_count); number_input[in_count] = 7; in_count++,
+      if(in_count < 3) display_LCD("8",12+in_count); number_input[in_count] = 8; in_count++,
+      if(in_count < 3) display_LCD("9",12+in_count); number_input[in_count] = 9; in_count++,
+      b = input_translate(number_input, in_count);
+        display_LCD("Saved BLUE val. Save to mem: ->D",0);
+        Delay(2000000);
+        reset = 1,
       display_LCD("---",12);
-        number_input[0]=0;
-        number_input[1]=0;
-        number_input[2]=0;
-        in = 2,
-      display_LCD("0",12+in); number_input[in] = 0; in--,
-      ,
-      ,
+        clear_number_input(),
+      if(in_count < 3) display_LCD("0",12+in_count); number_input[2-in_count] = 0; in_count++,
+      return,
+      colour[number][0] = r;
+        colour[number][1] = g;
+        colour[number][2] = b;
+        display_LCD("Saved to memory.R:   G:   B:    ",0);
+        sprintf(r_str, "%d",r);
+        sprintf(g_str, "%d",g);
+        sprintf(b_str, "%d",b);
+        display_LCD(r_str, 18);
+        display_LCD(g_str, 23);
+        display_LCD(b_str, 28);
+        display_colour(number);
+        Delay(2000000);
+        reset = 1;
+        return
     );
   }
-  menu(
-      ,
-      ,
-      ,
-      ,
-      ,
-      ,
-      ,
-      ,
-      ,
-      ,
-      ,
-      ,
-      ,
-      ,
-      ,
-  );
-  goto input;
 }
 void define_sequence(uint8_t number){
+  display_LCD("Type Sequence. ENTER: * CLR: #",0);
+  Delay(1000000);
+  uint8_t str[32];
+  sprintf(str, "%d", number);
+  display_LCD("Sequence: %d    ",0);
+  display_LCD("                ",16);
+  uint8_t in_count = 0;
+  while(1){
+    menu(
+      sequence[number][in_count] = colour[0]
 
+
+
+
+
+
+
+
+
+
+
+
+      
+    );
+  }
 }
 
 void def_menu(void){
-  display_LCD("DEF: 1-9 or A-D *:DISP ALL #:CXL",0);
-
-  while(1) menu(
-    define_colour(1),
-    define_colour(2),
-    define_colour(3),
-    define_sequence(0),
-    define_colour(4),
-    define_colour(5),
-    define_colour(6),
-    define_sequence(1),
-    define_colour(7),
-    define_colour(8),
-    define_colour(9),
-    define_sequence(2),
-    ,//TODO asterix,
-    ,//TODO ZERO
-    return,
-    define_sequence(3)
-  );
+  while(1) {
+    defmenu_start:
+    display_LCD("DEF: 1-9 or A-D *:DISP ALL #:CXL",0);
+    menu(
+      define_colour(0),
+      define_colour(1); display_LCD("DEBUG ALLAALLAA",0); Delay(1000000),
+      define_colour(2),
+      define_sequence(0),
+      define_colour(3),
+      define_colour(4),
+      define_colour(5),
+      define_sequence(1),
+      define_colour(6),
+      define_colour(7),
+      define_colour(8),
+      define_sequence(2),
+      display_LCD("pressed: *.",0),//TODO asterix,
+      ,//TODO ZERO
+      return,
+      define_sequence(3)
+    );
+  }
 }
 void opt_menu(void){
 
 }
 void main_menu(void){
   //Display LCD
-  display_LCD("1-9:Col, A-D:Seq", 0);
-  display_LCD("*: Def, #:Repeat", 16);
 
 
-  while (1) menu(
-    display_colour(0),
-    display_colour(1),
-    display_colour(2),
-    display_sequence(0),
-    display_colour(3),
-    display_colour(4),
-    display_colour(5),
-    display_sequence(1),
-    display_colour(6),
-    display_colour(7),
-    display_colour(8),
-    display_sequence(2),
-    def_menu(); return,
-    ,//TODO ZERO,
-    opt_menu(); return,
-    display_sequence(3)
-  );
+
+  while (1) {
+    display_LCD("1-9:Col, A-D:Seq*: Def, #:Repeat", 0);
+    menu(
+      display_colour(0),
+      display_colour(1),
+      display_colour(2),
+      display_sequence(0),
+      display_colour(3),
+      display_colour(4),
+      display_colour(5),
+      display_sequence(1),
+      display_colour(6),
+      display_colour(7),
+      display_colour(8),
+      display_sequence(2),
+      def_menu(),
+      ,//TODO ZERO,
+      opt_menu(),
+      display_sequence(3)
+    );
+  }
 }
 
 int main(void){
   Full_Init();
-  LCD_clear();
+  display_LCD("                                ",0);
 
   /* //DEBUG light
   set_basic_data();
@@ -218,7 +281,6 @@ int main(void){
     printKeyToLCD(decode_keypad(read_buff[0]),LCDcount);
   }
   //*/
-
 
 
   //LCD_clear();
