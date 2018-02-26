@@ -12,6 +12,6 @@ Status EL_LCD_WriteChars(uint8_t * characters, size_t length);
 Status EL_LCD_WriteAddress(uint8_t address);
 Status EL_LCD_ClearDisplay(void);
 uint8_t EL_LCD_EncodeASCII(uint8_t character);
-void EL_LCD_EncodeASCIIString(uint8_t * string);
+void EL_LCD_EncodeASCIIString(char * string);
 
 #endif

@@ -5,6 +5,7 @@
 #include "lib/empr_lib_lcd.c"
 #include "lib/empr_lib_keypad.c"
 #include <stdio.h>
+#include <string.h>
 #define READ() ((GPIO_ReadValue(0) & 0x20000) == 0x20000)
 
 #define SENDING 0x40040
@@ -43,9 +44,9 @@ void EL_SERIAL_Init(void)
   PINSEL_ConfigPin(&PinCfg);
 
   UART_CFG_Type UARTCfg;
-  UARTCfg.Baud_rate = 9600;
   UART_FIFO_CFG_Type FIFOCfg;
   UART_ConfigStructInit(&UARTCfg);
+  UARTCfg.Baud_rate = 230400;
   UART_FIFOConfigStructInit(&FIFOCfg);
 
   UART_FIFOConfig(LPC_UART0, &FIFOCfg);
@@ -256,7 +257,7 @@ int main(){
           EL_LCD_ClearDisplay();
           EL_LCD_EncodeASCIIString(lcd_string);
           EL_LCD_WriteChars(lcd_string, 9);
-          errors = getFrame(&type_slot, &slots);
+          errors = getFrame(&type_slot, slots);
           current_menu_state = CAPTURED_PACKET;
           slot_offset = 0;
           print("READ\r\n");
@@ -313,7 +314,7 @@ int main(){
           }
           break;
         case '0':
-          errors = getFrame(&type_slot, &slots);
+          errors = getFrame(&type_slot, slots);
           break;
         case 'D':
           current_menu_state = MENU_TOP;
@@ -398,7 +399,7 @@ int main(){
       strcpy(lcd_string, "TRIGGER COND.   ");
       EL_LCD_EncodeASCIIString(lcd_string);
       EL_LCD_WriteChars(lcd_string, 16);
-      errors = getFrame(&type_slot, &slots);
+      errors = getFrame(&type_slot, slots);
       current_menu_state = CAPTURED_PACKET;
       slot_offset = ((channel_address-1)/4);
       if(slot_offset>127){
@@ -450,14 +451,14 @@ int main(){
           trigger_changed = 1;
           break;
         case '0':
-          errors = getFrame(&type_slot, &slots);
+          errors = getFrame(&type_slot, slots);
           trigger_changed = 1;
           break;
         case 'D':
           current_menu_state = MENU_TOP;
           break;
       }
-      errors = getFrame(&type_slot, &trigger_compare);
+      errors = getFrame(&type_slot, trigger_compare);
       int compare_index = (channel_address-1) % 512;
       while(compare_index < channel_address+channel_size-1){
         if(trigger_compare[compare_index] != slots[compare_index]){
@@ -473,7 +474,7 @@ int main(){
       }
     }
     while(current_menu_state == DISPLAY_MODE){
-      errors = getFrame(&type_slot, &slots);
+      errors = getFrame(&type_slot, slots);
       uint8_t output_buffer[1028];
       int output_index = 0;
       output_buffer[0] = '!';

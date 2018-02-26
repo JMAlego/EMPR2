@@ -47,7 +47,7 @@ Status EL_LCD_ClearDisplay(void){
     result = ERROR;
   if (!EL_LCD_WriteAddress(0x00))
     result = ERROR;
-  unsigned char chars[20] = {0xa0, 0xa0, 0xa0, 0xa0, 0xa0, 0xa0, 0xa0, 0xa0, 0xa0, 0xa0, 0xa0, 0xa0, 0xa0, 0xa0, 0xa0, 0xa0, 0xa0, 0xa0, 0xa0, 0xa0};
+  uint8_t chars[20] = {0xa0, 0xa0, 0xa0, 0xa0, 0xa0, 0xa0, 0xa0, 0xa0, 0xa0, 0xa0, 0xa0, 0xa0, 0xa0, 0xa0, 0xa0, 0xa0, 0xa0, 0xa0, 0xa0, 0xa0};
   if (!EL_LCD_WriteChars(chars, 20))
     result = ERROR;
   if (!EL_LCD_WriteAddress(0x40))
@@ -79,10 +79,10 @@ uint8_t EL_LCD_EncodeASCII(uint8_t character){
   return 0x56;
 }
 
-void EL_LCD_EncodeASCIIString(uint8_t * string){
+void EL_LCD_EncodeASCIIString(char * string){
   size_t i = 0;
   while(string[i] != '\0'){
-    string[i] = EL_LCD_EncodeASCII(string[i]);
+    string[i] = EL_LCD_EncodeASCII((uint8_t) string[i]);
     i++;
   }
 }
