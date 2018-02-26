@@ -55,6 +55,5 @@ dkms.conf
 */bin/*
 !*.git*
 
-KIAindividual/
 
 __pycache__/

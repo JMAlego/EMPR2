@@ -447,7 +447,6 @@ void send_data_UART(int wait){
 
   if (wait) while (UART_CheckBusy(LPC_UART1)==SET);
 }
-
 void send_colours(uint8_t coloursRGB[][3], uint8_t length, uint32_t delay){
   int i;
   for (i = 0; i < length; i++){
