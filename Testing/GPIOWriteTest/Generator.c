@@ -159,29 +159,38 @@ void define_colour(uint8_t number){
   }
 }
 void define_sequence(uint8_t number){
-  display_LCD("Type Sequence. ENTER: * CLR: #",0);
+  display_LCD("Type Sequence.  ENTER: * CLR: #",0);
   Delay(1000000);
-  uint8_t str[32];
-  sprintf(str, "%d", number);
-  display_LCD("Sequence: %d    ",0);
+  //uint8_t str[32];
+  uint8_t letter[1];
+  switch (number) {
+    case 0: letter[0]='A'; break;
+    case 1: letter[0]='B'; break;
+    case 2: letter[0]='C'; break;
+    case 3: letter[0]='D'; break;
+  }
+  display_LCD("Sequence:       ",0);
+  display_LCD(letter, 10);
   display_LCD("                ",16);
   uint8_t in_count = 0;
   while(1){
     menu(
-      sequence[number][in_count] = colour[0]
-
-
-
-
-
-
-
-
-
-
-
-
-      
+      if (in_count < 16) sequence[number][in_count] = colour[0]; display_LCD("1",16+in_count); in_count++,
+      if (in_count < 16) sequence[number][in_count] = colour[1]; display_LCD("2",16+in_count); in_count++,
+      if (in_count < 16) sequence[number][in_count] = colour[2]; display_LCD("3",16+in_count); in_count++,
+      ,//A
+      if (in_count < 16) sequence[number][in_count] = colour[3]; display_LCD("4",16+in_count); in_count++,
+      if (in_count < 16) sequence[number][in_count] = colour[4]; display_LCD("5",16+in_count); in_count++,
+      if (in_count < 16) sequence[number][in_count] = colour[5]; display_LCD("6",16+in_count); in_count++,
+      ,//B
+      if (in_count < 16) sequence[number][in_count] = colour[6]; display_LCD("7",16+in_count); in_count++,
+      if (in_count < 16) sequence[number][in_count] = colour[7]; display_LCD("8",16+in_count); in_count++,
+      if (in_count < 16) sequence[number][in_count] = colour[8]; display_LCD("9",16+in_count); in_count++,
+      ,//C
+      ,//*
+      ,//0
+      ,//#
+      //D
     );
   }
 }
