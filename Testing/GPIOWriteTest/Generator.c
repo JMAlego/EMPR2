@@ -29,6 +29,7 @@ uint8_t navigate(void);
 void display_colour(uint8_t number);
 void display_sequence(uint8_t number); // printKeyToLCD(number,LCDcount);
 
+
 // States
 void define_colour(uint8_t number);
 void define_sequence(uint8_t number);
@@ -82,6 +83,26 @@ void display_sequence(uint8_t number){
     i++;
   }
 }
+void copy_sequence(uint8_t def_seq[16], uint8_t copy_seq[16], uint8_t in_count){
+  uint8_t copy_seq_copy[16];
+  int i;
+  //make a copy of copy_seq because it may be pointing to the same as def_seq.
+  for (i = 0; i < 16; i++){copy_seq_copy[i] = copy_seq[i];}
+
+  for (i = 0; i < 16; i++){
+    def_seq[in_count] = copy_seq_copy[i];
+    in_count++;
+  }
+}
+void add_seq_to_display(uint8_t seq[16], uint8_t in_count){
+  uint8_t str[1];
+  int i;
+  for (i = 0; i < 16; i++){
+    sprintf(str, "%d", seq[i]);
+    display_LCD(str, 16+in_count+i);
+
+  }
+}
 
 // States
 void define_colour(uint8_t number){
@@ -90,7 +111,7 @@ void define_colour(uint8_t number){
   uint8_t string[32];
   display_LCD("Set rgb ->A,B,C,Save to mem: ->D",0);
   Delay(1000000);
-  sprintf(string,"Col %d: VAL: --- SAVE rgb ->A,B,C", number);
+  sprintf(string,"Col %d: VAL: --- SAVE rgb ->A,B,C", (number+1));
   display_LCD(string,0);
   Delay(1000000);
 
@@ -178,7 +199,7 @@ void define_sequence(uint8_t number){
       if (in_count < 16) sequence[number][in_count] = colour[0]; display_LCD("1",16+in_count); in_count++,
       if (in_count < 16) sequence[number][in_count] = colour[1]; display_LCD("2",16+in_count); in_count++,
       if (in_count < 16) sequence[number][in_count] = colour[2]; display_LCD("3",16+in_count); in_count++,
-      ,//A
+      add_seq_to_display(sequence[0],in_count); copy_sequence(sequence[number],sequence[0],in_count),
       if (in_count < 16) sequence[number][in_count] = colour[3]; display_LCD("4",16+in_count); in_count++,
       if (in_count < 16) sequence[number][in_count] = colour[4]; display_LCD("5",16+in_count); in_count++,
       if (in_count < 16) sequence[number][in_count] = colour[5]; display_LCD("6",16+in_count); in_count++,
@@ -296,6 +317,6 @@ int main(void){
 
 
   //write_i2c(char_buff,2,LCD_ADDRESS);
-
-  while(1) main_menu();
+  add_seq_to_display(sequence[0],0);
+  //while(1) main_menu();
 }

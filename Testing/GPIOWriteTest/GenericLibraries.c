@@ -565,4 +565,5 @@ void display_LCD(uint8_t string[], uint8_t LCD_address){
   uint8_t str_length = stringToLCD(buff, out_buff);
   loadToLCDbuffer(out_buff, str_length, &LCDcounter);
   outputLCDbuff();
+  Delay(100);
 }
