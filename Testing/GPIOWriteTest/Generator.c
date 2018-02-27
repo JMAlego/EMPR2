@@ -97,8 +97,9 @@ void copy_sequence(uint8_t def_seq[16], uint8_t copy_seq[16], uint8_t in_count){
 void add_seq_to_display(uint8_t seq[16], uint8_t in_count){
   uint8_t str[1];
   int i;
+  if(seq[0]==6){display_LCD("poop!",0);}
   for (i = 0; i < 16; i++){
-    sprintf(str, "%d", seq[i]);
+    sprintf(str, "%d", seq[0][i]);
     display_LCD(str, 16+in_count+i);
 
   }
@@ -297,12 +298,12 @@ int main(void){
   colour[4][1] = 255;
   colour[4][2] = 0;
 
-  int i;
-  for (i = 0; i < 5; i++){
-    sequence[0][i] = colour[i];
-  }
 
 
+  sequence[0][0] = colour[1];
+  sequence[0][1] = colour[5];
+  sequence[0][2] = colour[3];
+  sequence[0][3] = colour[2];
   /* //DEBUG LCD and keypad
   LCD_clear();
   while(1){
@@ -317,6 +318,6 @@ int main(void){
 
 
   //write_i2c(char_buff,2,LCD_ADDRESS);
-  add_seq_to_display(sequence[0],0);
+  add_seq_to_display(sequence, seq_num,0);
   //while(1) main_menu();
 }

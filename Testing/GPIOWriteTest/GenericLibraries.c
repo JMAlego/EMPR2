@@ -519,6 +519,7 @@ uint8_t stringToLCD(uint8_t buff[], uint8_t out_buff[]){
       switch (buff[i]){
         case ' ': out_buff[i] = 0xA0; break;
         case '*': out_buff[i] = 170; break;
+        case '!': out_buff[i] = 161; break;
         case '#': out_buff[i] = 163; break;
         case ':': out_buff[i] = 186; break;
         case '.': out_buff[i] = 174; break;
@@ -559,6 +560,7 @@ void outputLCDbuff(void){
   }
 }
 void display_LCD(uint8_t string[], uint8_t LCD_address){
+  Delay(100);
   uint8_t LCDcounter = LCD_address;
   uint8_t* buff = string;
   uint8_t out_buff[32] = "                                 ";
