@@ -5,28 +5,12 @@
 #include "lib/empr_lib_lcd.c"
 #include "lib/empr_lib_keypad.c"
 #include <stdio.h>
+#include <string.h>
 #define READ() ((GPIO_ReadValue(0) & 0x20000) == 0x20000)
 
 #define SENDING 0x40040
 #define RECEIVING 0x20000
 #define STOP 0x000000
-
-/*
-volatile unsigned long SysTickCnt;
-
-void SysTick_Handler (void);
-void Delay (unsigned long tick);
-
-
-void SysTick_Handler (void) {
-  SysTickCnt++;
-}
-
-void Delay (unsigned long tick) {
-  uint64_t systickcnt;
-  systickcnt = SysTickCnt;
-  while ((SysTickCnt - systickcnt) < tick);
-}*/
 
 void EL_SERIAL_Init(void)
 {
@@ -43,9 +27,9 @@ void EL_SERIAL_Init(void)
   PINSEL_ConfigPin(&PinCfg);
 
   UART_CFG_Type UARTCfg;
-  UARTCfg.Baud_rate = 9600;
   UART_FIFO_CFG_Type FIFOCfg;
   UART_ConfigStructInit(&UARTCfg);
+  UARTCfg.Baud_rate = 230400;
   UART_FIFOConfigStructInit(&FIFOCfg);
 
   UART_FIFOConfig(LPC_UART0, &FIFOCfg);
@@ -62,7 +46,7 @@ size_t EL_SERIAL_SizeOfString(uint8_t string[])
   return length + 1;
 }
 
-void print(char string[])
+void print(char * string)
 {
   UART_Send(LPC_UART0, (uint8_t *) string, EL_SERIAL_SizeOfString((uint8_t *) string), BLOCKING);
 }
@@ -256,7 +240,7 @@ int main(){
           EL_LCD_ClearDisplay();
           EL_LCD_EncodeASCIIString(lcd_string);
           EL_LCD_WriteChars(lcd_string, 9);
-          errors = getFrame(&type_slot, &slots);
+          errors = getFrame(&type_slot, slots);
           current_menu_state = CAPTURED_PACKET;
           slot_offset = 0;
           print("READ\r\n");
@@ -285,7 +269,7 @@ int main(){
         EL_LCD_EncodeASCIIString(lcd_string);
         EL_LCD_WriteChars(lcd_string, 16);
         EL_LCD_WriteAddress(0x40);
-        type_lookup(&lcd_string, type_slot);
+        type_lookup(lcd_string, type_slot);
         EL_LCD_EncodeASCIIString(lcd_string);
         EL_LCD_WriteChars(lcd_string, 16);
       }else{
@@ -313,7 +297,7 @@ int main(){
           }
           break;
         case '0':
-          errors = getFrame(&type_slot, &slots);
+          errors = getFrame(&type_slot, slots);
           break;
         case 'D':
           current_menu_state = MENU_TOP;
@@ -332,7 +316,7 @@ int main(){
       EL_LCD_WriteAddress(0x40);
       char input_key = '\0';
       char input_chars[3] = {0, 0, 0};
-      char key_index = 0;
+      unsigned char key_index = 0;
       while(current_menu_state == TRIGGER_INPUT_1){
         input_key = EL_KEYPAD_ReadKey();
         if(input_key == 'A'){
@@ -343,7 +327,6 @@ int main(){
             if(channel_size == 0)
               channel_size = 1;
             current_menu_state = TRIGGER_INPUT_2;
-            print("HERE!");
           }
         }else{
           input_chars[key_index] = EL_UTIL_ASCIINumberCharacterToNumber(input_key);
@@ -367,7 +350,7 @@ int main(){
       EL_LCD_WriteAddress(0x40);
       char input_key = '\0';
       char input_chars[3] = {0, 0, 0};
-      char key_index = 0;
+      unsigned char key_index = 0;
       while(current_menu_state == TRIGGER_INPUT_2){
         input_key = EL_KEYPAD_ReadKey();
         if(input_key == 'A'){
@@ -398,7 +381,7 @@ int main(){
       strcpy(lcd_string, "TRIGGER COND.   ");
       EL_LCD_EncodeASCIIString(lcd_string);
       EL_LCD_WriteChars(lcd_string, 16);
-      errors = getFrame(&type_slot, &slots);
+      errors = getFrame(&type_slot, slots);
       current_menu_state = CAPTURED_PACKET;
       slot_offset = ((channel_address-1)/4);
       if(slot_offset>127){
@@ -419,7 +402,7 @@ int main(){
           EL_LCD_EncodeASCIIString(lcd_string);
           EL_LCD_WriteChars(lcd_string, 16);
           EL_LCD_WriteAddress(0x40);
-          type_lookup(&lcd_string, type_slot);
+          type_lookup(lcd_string, type_slot);
           EL_LCD_EncodeASCIIString(lcd_string);
           EL_LCD_WriteChars(lcd_string, 16);
         }else{
@@ -450,14 +433,14 @@ int main(){
           trigger_changed = 1;
           break;
         case '0':
-          errors = getFrame(&type_slot, &slots);
+          errors = getFrame(&type_slot, slots);
           trigger_changed = 1;
           break;
         case 'D':
           current_menu_state = MENU_TOP;
           break;
       }
-      errors = getFrame(&type_slot, &trigger_compare);
+      errors = getFrame(&type_slot, trigger_compare);
       int compare_index = (channel_address-1) % 512;
       while(compare_index < channel_address+channel_size-1){
         if(trigger_compare[compare_index] != slots[compare_index]){
@@ -473,7 +456,7 @@ int main(){
       }
     }
     while(current_menu_state == DISPLAY_MODE){
-      errors = getFrame(&type_slot, &slots);
+      errors = getFrame(&type_slot, slots);
       uint8_t output_buffer[1028];
       int output_index = 0;
       output_buffer[0] = '!';
@@ -515,7 +498,7 @@ int main(){
       output_buffer[output_buffer_index] = '\n';
       output_buffer_index++;
       output_buffer[output_buffer_index] = '\0';
-      print(output_buffer);
+      print((char *) output_buffer);
       menu_key = EL_KEYPAD_CheckKey();
       if(menu_key == 'D'){
         current_menu_state = MENU_TOP;

@@ -17,7 +17,7 @@ Status EL_LCD_WriteChar(uint8_t character){
   return EL_I2C_SendBytes(EMPR_LIB_I2C_ADDRESS_LCD, data, 2);
 }
 
-Status EL_LCD_WriteChars(uint8_t * characters, size_t length){
+Status EL_LCD_WriteChars(char * characters, size_t length){
   uint8_t data[length*2];
   size_t i;
   for(i = 0; i < length; i++){
@@ -26,7 +26,7 @@ Status EL_LCD_WriteChars(uint8_t * characters, size_t length){
     }else{
       data[i*2] = 0xC0;
     }
-    data[i*2 + 1] = characters[i];
+    data[i*2 + 1] = (uint8_t) characters[i];
   }
   return EL_I2C_SendBytes(EMPR_LIB_I2C_ADDRESS_LCD, data, length * 2);
 }
@@ -47,12 +47,12 @@ Status EL_LCD_ClearDisplay(void){
     result = ERROR;
   if (!EL_LCD_WriteAddress(0x00))
     result = ERROR;
-  unsigned char chars[20] = {0xa0, 0xa0, 0xa0, 0xa0, 0xa0, 0xa0, 0xa0, 0xa0, 0xa0, 0xa0, 0xa0, 0xa0, 0xa0, 0xa0, 0xa0, 0xa0, 0xa0, 0xa0, 0xa0, 0xa0};
-  if (!EL_LCD_WriteChars(chars, 20))
+  uint8_t chars[20] = {0xa0, 0xa0, 0xa0, 0xa0, 0xa0, 0xa0, 0xa0, 0xa0, 0xa0, 0xa0, 0xa0, 0xa0, 0xa0, 0xa0, 0xa0, 0xa0, 0xa0, 0xa0, 0xa0, 0xa0};
+  if (!EL_LCD_WriteChars((char *) chars, 20))
     result = ERROR;
   if (!EL_LCD_WriteAddress(0x40))
     result = ERROR;
-  if (!EL_LCD_WriteChars(chars, 20))
+  if (!EL_LCD_WriteChars((char *) chars, 20))
     result = ERROR;
   if (!EL_LCD_WriteAddress(0x00))
     result = ERROR;
@@ -79,10 +79,10 @@ uint8_t EL_LCD_EncodeASCII(uint8_t character){
   return 0x56;
 }
 
-void EL_LCD_EncodeASCIIString(uint8_t * string){
+void EL_LCD_EncodeASCIIString(char * string){
   size_t i = 0;
   while(string[i] != '\0'){
-    string[i] = EL_LCD_EncodeASCII(string[i]);
+    string[i] = EL_LCD_EncodeASCII((uint8_t) string[i]);
     i++;
   }
 }

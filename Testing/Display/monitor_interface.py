@@ -9,7 +9,7 @@ class MonitorInterface(object):
 
     def __init__(self, tty_location="/dev/ttyACM0"):
         try:
-            self.tty_handle = serial.Serial(tty_location, baudrate=9600, parity=serial.PARITY_NONE)
+            self.tty_handle = serial.Serial(tty_location, baudrate=230400, parity=serial.PARITY_NONE)
             #self.tty_handle = os.open(tty_location, os.O_RDWR)
         except IOError:
             raise Exception("Unable to open TTY")
