@@ -12,6 +12,7 @@
 #define RECEIVING 0x20000
 #define STOP 0x000000
 
+//Special serial for higher throughput than normally in library
 void EL_SERIAL_Init(void)
 {
   PINSEL_CFG_Type PinCfg;
@@ -29,6 +30,7 @@ void EL_SERIAL_Init(void)
   UART_CFG_Type UARTCfg;
   UART_FIFO_CFG_Type FIFOCfg;
   UART_ConfigStructInit(&UARTCfg);
+  //High baud rate for faster PC interface
   UARTCfg.Baud_rate = 230400;
   UART_FIFOConfigStructInit(&FIFOCfg);
 
@@ -46,15 +48,18 @@ size_t EL_SERIAL_SizeOfString(uint8_t string[])
   return length + 1;
 }
 
+//Print alias for easier
 void print(char * string)
 {
   UART_Send(LPC_UART0, (uint8_t *) string, EL_SERIAL_SizeOfString((uint8_t *) string), BLOCKING);
 }
 
+//Handy consts for times that make human sense
 const int SECOND = 1000000;
 const int MILISECOND = 1000;
 const int MICROSECOND = 1;
 
+//States for core state machine
 typedef enum MONITOR_STATE{
   IDLE=0,
   BREAK=1,
@@ -64,6 +69,7 @@ typedef enum MONITOR_STATE{
   END_FRAME=5
 } MONITOR_STATE;
 
+//Function to get a frame/packet
 int getFrame(uint8_t * out_type, uint8_t out_slots[]){
   int input_state;
   unsigned long start_time;
@@ -106,7 +112,7 @@ int getFrame(uint8_t * out_type, uint8_t out_slots[]){
         if(SysTickCnt - start_time > MILISECOND)
           break;
         else if(SysTickCnt - start_time > SECOND){
-          print("AAHAHAHAHAHAHH PANIC!\r\n");
+          //AAHAHAHAHAHAHH PANIC!
           state = IDLE;
         }else{
           start_time = SysTickCnt;
@@ -126,9 +132,6 @@ int getFrame(uint8_t * out_type, uint8_t out_slots[]){
         end_bits = 0;
         while(READ() == 1);
         slot_start_time = SysTickCnt;
-        /*if(slot_count == 0){
-          while(SysTickCnt - slot_start_time < MICROSECOND*1);
-        }*/
         while(bit_index < 11){
           bit_start_time = SysTickCnt;
           if(bit_index == 0){
@@ -146,12 +149,6 @@ int getFrame(uint8_t * out_type, uint8_t out_slots[]){
         if(break_bit != 0 || end_bits != 2){
           errors++;
         }
-        /*if(state == INITIAL_SLOT){
-          state = SLOT;
-          type_slot = slot;
-        }else{
-          slots[slot_count - 1] = slot;
-        }*/
         slots[slot_count] = slot;
         slot_count++;
         while(SysTickCnt - slot_start_time < MICROSECOND*4*11 - 1*MICROSECOND);
@@ -304,7 +301,9 @@ int main(){
           break;
       }
     }
+    //Get the user's input channel size
     while(current_menu_state == TRIGGER_INPUT_1){
+      //Prompt the user for input
       EL_LCD_WriteAddress(0x00);
       strcpy(lcd_string, "Ch. Size A=ENTER");
       EL_LCD_EncodeASCIIString(lcd_string);
@@ -317,18 +316,22 @@ int main(){
       char input_key = '\0';
       char input_chars[3] = {0, 0, 0};
       unsigned char key_index = 0;
+      //While we're still getting input
       while(current_menu_state == TRIGGER_INPUT_1){
         input_key = EL_KEYPAD_ReadKey();
+        //If the user pressed "enter"
         if(input_key == 'A'){
           channel_size = input_chars[2] + input_chars[1]*10 + input_chars[0]*100;
+          //If it's not valid, set it to 0
           if(channel_size>512){
             channel_size = 0;
-          }else{
+          }else{ //Else use it
             if(channel_size == 0)
               channel_size = 1;
             current_menu_state = TRIGGER_INPUT_2;
           }
         }else{
+          //Decode as a number and move to next input char
           input_chars[key_index] = EL_UTIL_ASCIINumberCharacterToNumber(input_key);
           if(input_chars[key_index]!=10){
             EL_LCD_WriteAddress(0x40+key_index);
@@ -338,7 +341,9 @@ int main(){
         }
       }
     }
+    //Get the user's input address
     while(current_menu_state == TRIGGER_INPUT_2){
+      //Prompt the user for input
       EL_LCD_WriteAddress(0x00);
       strcpy(lcd_string, "Address A=ENTER ");
       EL_LCD_EncodeASCIIString(lcd_string);
@@ -351,18 +356,22 @@ int main(){
       char input_key = '\0';
       char input_chars[3] = {0, 0, 0};
       unsigned char key_index = 0;
+      //While we're still getting input
       while(current_menu_state == TRIGGER_INPUT_2){
         input_key = EL_KEYPAD_ReadKey();
+        //If the user pressed "enter"
         if(input_key == 'A'){
           channel_address = input_chars[2] + input_chars[1]*10 + input_chars[0]*100;
+          //If it's not valid, set it to 0
           if(channel_address>512){
             channel_address = 0;
-          }else{
+          }else{ //Else use it
             if(channel_address == 0)
               channel_address = 1;
             current_menu_state = TRIGGER_INPUT_CAPTURE;
           }
-        }else{
+        }else{// If it's another char
+          //Decode as a number and move to next input char
           input_chars[key_index] = EL_UTIL_ASCIINumberCharacterToNumber(input_key);
           if(input_chars[key_index]!=10){
             EL_LCD_WriteAddress(0x40+key_index);
@@ -372,7 +381,9 @@ int main(){
         }
       }
     }
+    //If we're about to go into the Trigger Capture state
     if(current_menu_state == TRIGGER_INPUT_CAPTURE){
+      //Prompt user that we're waiting for input
       EL_LCD_WriteAddress(0x00);
       strcpy(lcd_string, "WAITING FOR     ");
       EL_LCD_EncodeASCIIString(lcd_string);
@@ -381,22 +392,27 @@ int main(){
       strcpy(lcd_string, "TRIGGER COND.   ");
       EL_LCD_EncodeASCIIString(lcd_string);
       EL_LCD_WriteChars(lcd_string, 16);
+      //Read initial state
       errors = getFrame(&type_slot, slots);
       current_menu_state = CAPTURED_PACKET;
+      //Set displayed slot to the start of specified channel
       slot_offset = ((channel_address-1)/4);
+      //Clamp input
       if(slot_offset>127){
         slot_offset = 127;
       }else if(slot_offset < 0){
         slot_offset = 0;
       }
-      print("READ\r\n");
       current_menu_state = TRIGGER_INPUT_LOOP;
       trigger_changed = 1;
-      print("STATE = TRIGGER_INPUT_LOOP\r\n");
     }
+    //Trigger Capture state
     while(current_menu_state == TRIGGER_INPUT_LOOP){
+      //If we've detected a change
       if(trigger_changed){
+        //Update the display
         if (slot_offset == -1){
+          //Display type slot
           EL_LCD_WriteAddress(0x00);
           sprintf(lcd_string, "Type Slot: 0x%02x ", type_slot);
           EL_LCD_EncodeASCIIString(lcd_string);
@@ -406,6 +422,7 @@ int main(){
           EL_LCD_EncodeASCIIString(lcd_string);
           EL_LCD_WriteChars(lcd_string, 16);
         }else{
+          //Display normal slots
           EL_LCD_WriteAddress(0x00);
           sprintf(lcd_string, "0x%02x:0x%02x    %03d", slots[slot_offset*4], slots[slot_offset*4+1], slot_offset*4 + 1);
           EL_LCD_EncodeASCIIString(lcd_string);
@@ -416,57 +433,73 @@ int main(){
           EL_LCD_WriteChars(lcd_string, 16);
         }
       }
+      //Check for user input
       menu_key = EL_KEYPAD_CheckKey();
+      //Decode what input char means
       switch (menu_key) {
-        case '#':
+        case '#': //Move right
           slot_offset++;
           if(slot_offset == 128){
             slot_offset = -1;
           }
           trigger_changed = 1;
           break;
-        case '*':
+        case '*': //Move left
           slot_offset--;
           if(slot_offset == -2){
             slot_offset = 127;
           }
           trigger_changed = 1;
           break;
-        case '0':
+        case '0': //Force read
           errors = getFrame(&type_slot, slots);
           trigger_changed = 1;
           break;
-        case 'D':
+        case 'D': //Exit
           current_menu_state = MENU_TOP;
           break;
       }
+      //Read DMX
       errors = getFrame(&type_slot, trigger_compare);
+      //Compare all slots
       int compare_index = (channel_address-1) % 512;
       while(compare_index < channel_address+channel_size-1){
+        //If there's a change
         if(trigger_compare[compare_index] != slots[compare_index]){
+          //Copy data
           int copy_index = 0;
           while(copy_index < 512){
             slots[copy_index] = trigger_compare[copy_index];
             copy_index++;
           }
+          //Mark changed
           trigger_changed = 1;
           break;
         }
         compare_index = (compare_index + 1) % 512;
       }
     }
+    //Display Mode State
+    //Uses run length encoding: https://en.wikipedia.org/wiki/Run-length_encoding
     while(current_menu_state == DISPLAY_MODE){
+      //Captures a frame
       errors = getFrame(&type_slot, slots);
+      //Creates a buffer for output to the PC
       uint8_t output_buffer[1028];
       int output_index = 0;
+      //Indicate start of data
       output_buffer[0] = '!';
       uint8_t prev = 0;
       uint8_t prev_count = 0;
       unsigned long long output_buffer_index = 1;
+      //For each output slot
       while(output_index < 512){
+        //If the slot == the last slot and we haven't had >= 255 of the last slot
         if(prev == slots[output_index] && prev_count < 255){
+          //Run is longer
           prev_count++;
         }else{
+          //If we had a run, add that to the buffer
           if(prev_count > 0){
             output_buffer[output_buffer_index] = 'X';
             output_buffer_index++;
@@ -476,6 +509,7 @@ int main(){
             output_buffer_index++;
             prev_count = 0;
           }
+          //Write encoded slot to buffer
           output_buffer[output_buffer_index] = EL_UTIL_IntToHex(slots[output_index]/16);
           output_buffer_index++;
           output_buffer[output_buffer_index] = EL_UTIL_IntToHex(slots[output_index]%16);
@@ -484,6 +518,7 @@ int main(){
         }
         output_index++;
       }
+      //Catch runs that haven't been written yet
       if(prev_count > 0){
         output_buffer[output_buffer_index] = 'X';
         output_buffer_index++;
@@ -493,11 +528,13 @@ int main(){
         output_buffer_index++;
         prev_count = 0;
       }
+      //Indicate end of data
       output_buffer[output_buffer_index] = '\r';
       output_buffer_index++;
       output_buffer[output_buffer_index] = '\n';
       output_buffer_index++;
       output_buffer[output_buffer_index] = '\0';
+      //Send buffer to PC
       print((char *) output_buffer);
       menu_key = EL_KEYPAD_CheckKey();
       if(menu_key == 'D'){
