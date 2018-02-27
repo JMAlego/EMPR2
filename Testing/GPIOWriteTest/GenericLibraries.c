@@ -124,9 +124,7 @@ void display_LCD(uint8_t string[], uint8_t LCD_address);
 void loadToLCDbuffer(uint8_t buff[], uint8_t length, uint8_t* LCDcounter);
 void outputLCDbuff(void);
 uint8_t stringToLCD(uint8_t buff[], uint8_t out_buff[]);
-void SEGMENT_WriteHidden(int value, uint8_t dp_digit, int leading);
-void SEGMENT_Write(int int_value, int zeros);
-void SEGMENT_WriteFloat(double double_value, int zeros);
+
 
 
 
@@ -150,7 +148,6 @@ void init_SEGMENTS(void){
   //data[5] = SAA1064_ALL;                      // Digit 4: All Segments On
   write_i2c(data, 6, EIGHT_SEG_ADDRESS);
 }
-
 void SEGMENT_WriteHidden(int value, uint8_t dp_digit, int leading){
   uint8_t digit_value;
   uint8_t data[6];
@@ -230,7 +227,6 @@ void SEGMENT_WriteHidden(int value, uint8_t dp_digit, int leading){
   }
  write_i2c(data, 5, EIGHT_SEG_ADDRESS);
 }
-
 void SEGMENT_Write(int int_value, int zeros){
   uint8_t dp_digit = 0;
   int leading = 1;
@@ -269,15 +265,6 @@ void SEGMENT_WriteFloat(double double_value, int zeros){
 
   SEGMENT_WriteHidden(value, dp_digit, leading);
 }
-
-/*void SysTick_Handler (void) {
-  SysTickCnt++;
-}
-void Delay (unsigned long tick) {
-  unsigned long systickcnt;
-  systickcnt = SysTickCnt;
-  while ((SysTickCnt - systickcnt) < tick);
-}*/
 
 void BreakFlagLow(void){LPC_UART1->LCR |= 0x40;}
 void BreakFlagHigh(void){LPC_UART1->LCR &= 0xBF;}
@@ -427,7 +414,6 @@ void set_basic_data(void){
     data[i] = 0xFF; // bits arrive in backwards order because endianness
   }
 }
-
 void send_data_UART(int wait){
   //MTBP
   BreakFlagHigh();
@@ -447,7 +433,6 @@ void send_data_UART(int wait){
 
   if (wait) while (UART_CheckBusy(LPC_UART1)==SET);
 }
-
 void send_colours(uint8_t coloursRGB[][3], uint8_t length, uint32_t delay){
   int i;
   for (i = 0; i < length; i++){
