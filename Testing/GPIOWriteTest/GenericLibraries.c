@@ -97,7 +97,7 @@ const uint8_t KEY_TO_LCD_LOOKUP[4][4] = {{0xB1, 0xB2, 0xB3, 0xC1}, //1,2,3,A
                             {0xAA, 0xB0, 0xA3, 0xC4}};  //*,0.#,D
 uint8_t read_buff[0];
 
-static uint8_t LCD_buffer[32] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+static uint8_t LCD_buffer[32] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
 
 
 void print(uint8_t string[]);
@@ -122,7 +122,7 @@ void send_data_UART(int wait);
 void send_colours(uint8_t coloursRGB[][3], uint8_t length, uint32_t delay);
 void LCD_clear(void);
 void printKeyToLCD(int rrcc, int* LCDcount);
-void display_LCD(uint8_t string[], uint8_t LCD_address);
+void display_LCD(int8_t string[], uint8_t LCD_address);
 void loadToLCDbuffer(uint8_t buff[], uint8_t length, uint8_t* LCDcounter);
 void outputLCDbuff(void);
 uint8_t stringToLCD(uint8_t buff[], uint8_t out_buff[]);
@@ -506,12 +506,14 @@ uint8_t stringToLCD(uint8_t buff[], uint8_t out_buff[]){
       switch (buff[i]){
         case ' ': out_buff[i] = 0xA0; break;
         case '*': out_buff[i] = 170; break;
+        case '/': out_buff[i] = 175; break;
         case '!': out_buff[i] = 161; break;
         case '#': out_buff[i] = 163; break;
         case ':': out_buff[i] = 186; break;
         case '.': out_buff[i] = 174; break;
         case ',': out_buff[i] = 172; break;
         case '-': out_buff[i] = 173; break;
+        case '<': out_buff[i] = 188; break;
         case '=': out_buff[i] = 189; break;
         case '>': out_buff[i] = 190; break;
         default:
@@ -547,11 +549,11 @@ void outputLCDbuff(void){
     write_i2c(buff_char, 2, LCD_ADDRESS);
   }
 }
-void display_LCD(uint8_t string[], uint8_t LCD_address){
+void display_LCD(int8_t string[], uint8_t LCD_address){
   Delay(100);
   uint8_t LCDcounter = LCD_address;
-  uint8_t* buff = string;
-  uint8_t out_buff[32] = "                                 ";
+  int8_t* buff = string;
+  int8_t out_buff[32] = "                                 ";
   uint8_t str_length = stringToLCD(buff, out_buff);
   loadToLCDbuffer(out_buff, str_length, &LCDcounter);
   outputLCDbuff();
