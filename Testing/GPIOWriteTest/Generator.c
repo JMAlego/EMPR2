@@ -5,7 +5,7 @@
 #define menu(com1, com2, com3, com4, com5, \
   com6, com7, com8, com9, com10, com11,\
   com12, com13, com14, com15, com16) \
-  do { uint8_t key = navigate(); \
+  do { uint8_t key = read_keypress(); \
   switch (key){\
     _cb(0, com1)  _cb(1, com2)  _cb(2, com3)  _cb(3, com4)\
     _cb(4, com5)  _cb(5, com6)  _cb(6, com7)  _cb(7, com8)\
@@ -16,16 +16,16 @@
 #define DELAY 500000
 
 uint8_t char_buff[1];
-uint8_t read_buff[0];
 uint8_t out_buff[32];
 uint8_t colour[9][3];
-uint8_t* sequence[4][16];
+uint8_t sequence[4][16];
+uint8_t sequence_lengths[4] = {4,0,0,0};
 static uint8_t LCDcount = 0;
 
 ////////////////////////////////////////////////////////////////////////////////
 
 // Non-state functions
-uint8_t navigate(void);
+
 void display_colour(uint8_t number);
 void display_sequence(uint8_t number); // printKeyToLCD(number,LCDcount);
 
@@ -58,11 +58,7 @@ uint8_t input_translate(uint8_t number_input[3], uint8_t in_count){
 
 // Non-state functions
 
-uint8_t navigate(void){
-  get_keypad_press(read_buff);
-  //the decoded keypad "rrcc" format makes a sequence from 0-15. Counting column then row.
-  return decode_keypad(read_buff[0]);
-}
+
 void display_colour(uint8_t number){
   //display LCD
   //set data
@@ -74,32 +70,44 @@ void display_sequence(uint8_t number){
   //display LCD
   //display sequence
   int i = 0;
-  while(i<16){
+  while(i<sequence_lengths[number]){
     if (sequence[number]){
-      setdata(sequence[number][i][0],sequence[number][i][1],sequence[number][i][2]);
+      setdata(colour[sequence[number][i]-1][0],colour[sequence[number][i]-1][1],colour[sequence[number][i]-1][2]);
     }
     send_data_UART(BLOCKING);
     Delay(DELAY);
     i++;
   }
 }
-void copy_sequence(uint8_t def_seq[16], uint8_t copy_seq[16], uint8_t in_count){
-  uint8_t copy_seq_copy[16];
+void copy_sequence(uint8_t def_seq_number, uint8_t seq_tobecopied_number, uint8_t in_count){
+  uint8_t copy_seq[16];
   int i;
   //make a copy of copy_seq because it may be pointing to the same as def_seq.
-  for (i = 0; i < 16; i++){copy_seq_copy[i] = copy_seq[i];}
+  for (i = 0; i < 16; i++){copy_seq[i] = sequence[seq_tobecopied_number][i];}
 
   for (i = 0; i < 16; i++){
-    def_seq[in_count] = copy_seq_copy[i];
+    sequence[def_seq_number][in_count] = copy_seq[i];
     in_count++;
   }
 }
-void add_seq_to_display(uint8_t seq[16], uint8_t in_count){
+void add_seq_to_display(uint8_t number, uint8_t in_count){
   uint8_t str[1];
   int i;
-  if(seq[0]==6){display_LCD("poop!",0);}
-  for (i = 0; i < 16; i++){
-    sprintf(str, "%d", seq[0][i]);
+
+  for (i = 0; i < sequence_lengths[number]; i++){
+    switch (sequence[number][i]){
+      case 0: display_LCD("1", 16+in_count+i);
+      case 1: display_LCD("2", 16+in_count+i);
+      case 2: display_LCD("3", 16+in_count+i);
+      case 3: display_LCD("4", 16+in_count+i);
+      case 4: display_LCD("5", 16+in_count+i);
+      case 5: display_LCD("6", 16+in_count+i);
+      case 6: display_LCD("7", 16+in_count+i);
+      case 7: display_LCD("8", 16+in_count+i);
+      case 8: display_LCD("9", 16+in_count+i);
+      //number 0: case colour[9]: display_LCD("0", 16+in_count+i);
+    }
+    sprintf(str, "%d", sequence[number][i]);
     display_LCD(str, 16+in_count+i);
 
   }
@@ -197,23 +205,24 @@ void define_sequence(uint8_t number){
   uint8_t in_count = 0;
   while(1){
     menu(
-      if (in_count < 16) sequence[number][in_count] = colour[0]; display_LCD("1",16+in_count); in_count++,
-      if (in_count < 16) sequence[number][in_count] = colour[1]; display_LCD("2",16+in_count); in_count++,
-      if (in_count < 16) sequence[number][in_count] = colour[2]; display_LCD("3",16+in_count); in_count++,
-      add_seq_to_display(sequence[0],in_count); copy_sequence(sequence[number],sequence[0],in_count),
-      if (in_count < 16) sequence[number][in_count] = colour[3]; display_LCD("4",16+in_count); in_count++,
-      if (in_count < 16) sequence[number][in_count] = colour[4]; display_LCD("5",16+in_count); in_count++,
-      if (in_count < 16) sequence[number][in_count] = colour[5]; display_LCD("6",16+in_count); in_count++,
+      if (in_count < 16) sequence[number][in_count] = 0; display_LCD("1",16+in_count); in_count++,
+      if (in_count < 16) sequence[number][in_count] = 1; display_LCD("2",16+in_count); in_count++,
+      if (in_count < 16) sequence[number][in_count] = 2; display_LCD("3",16+in_count); in_count++,
+      add_seq_to_display(0,in_count); copy_sequence(number,0,in_count),
+      if (in_count < 16) sequence[number][in_count] = 3; display_LCD("4",16+in_count); in_count++,
+      if (in_count < 16) sequence[number][in_count] = 4; display_LCD("5",16+in_count); in_count++,
+      if (in_count < 16) sequence[number][in_count] = 5; display_LCD("6",16+in_count); in_count++,
       ,//B
-      if (in_count < 16) sequence[number][in_count] = colour[6]; display_LCD("7",16+in_count); in_count++,
-      if (in_count < 16) sequence[number][in_count] = colour[7]; display_LCD("8",16+in_count); in_count++,
-      if (in_count < 16) sequence[number][in_count] = colour[8]; display_LCD("9",16+in_count); in_count++,
+      if (in_count < 16) sequence[number][in_count] = 6; display_LCD("7",16+in_count); in_count++,
+      if (in_count < 16) sequence[number][in_count] = 7; display_LCD("8",16+in_count); in_count++,
+      if (in_count < 16) sequence[number][in_count] = 8; display_LCD("9",16+in_count); in_count++,
       ,//C
       ,//*
       ,//0
       ,//#
       //D
     );
+    sequence_lengths[number] = in_count;
   }
 }
 
@@ -300,10 +309,10 @@ int main(void){
 
 
 
-  sequence[0][0] = colour[1];
-  sequence[0][1] = colour[5];
-  sequence[0][2] = colour[3];
-  sequence[0][3] = colour[2];
+  sequence[0][0] = 1;
+  sequence[0][1] = 2;
+  sequence[0][2] = 3;
+  sequence[0][3] = 5;
   /* //DEBUG LCD and keypad
   LCD_clear();
   while(1){
@@ -318,6 +327,8 @@ int main(void){
 
 
   //write_i2c(char_buff,2,LCD_ADDRESS);
-  add_seq_to_display(sequence, seq_num,0);
-  //while(1) main_menu();
+  //add_seq_to_display(sequence[0],0);
+
+
+  while(1) main_menu();
 }

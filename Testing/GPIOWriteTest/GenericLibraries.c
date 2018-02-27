@@ -95,6 +95,8 @@ const uint8_t KEY_TO_LCD_LOOKUP[4][4] = {{0xB1, 0xB2, 0xB3, 0xC1}, //1,2,3,A
                             {0xB4, 0xB5, 0xB6, 0xC2},   //4.5.6.B
                             {0xB7, 0xB8, 0xB9, 0xC3},   //7,8,9,C
                             {0xAA, 0xB0, 0xA3, 0xC4}};  //*,0.#,D
+uint8_t read_buff[0];
+
 static uint8_t LCD_buffer[32] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
 
 
@@ -124,7 +126,7 @@ void display_LCD(uint8_t string[], uint8_t LCD_address);
 void loadToLCDbuffer(uint8_t buff[], uint8_t length, uint8_t* LCDcounter);
 void outputLCDbuff(void);
 uint8_t stringToLCD(uint8_t buff[], uint8_t out_buff[]);
-
+uint8_t read_keypress(void);
 
 
 
@@ -510,6 +512,7 @@ uint8_t stringToLCD(uint8_t buff[], uint8_t out_buff[]){
         case '.': out_buff[i] = 174; break;
         case ',': out_buff[i] = 172; break;
         case '-': out_buff[i] = 173; break;
+        case '=': out_buff[i] = 189; break;
         case '>': out_buff[i] = 190; break;
         default:
           return i;
@@ -553,4 +556,9 @@ void display_LCD(uint8_t string[], uint8_t LCD_address){
   loadToLCDbuffer(out_buff, str_length, &LCDcounter);
   outputLCDbuff();
   Delay(100);
+}
+uint8_t read_keypress(void){
+  get_keypad_press(read_buff);
+  //the decoded keypad "rrcc" format makes a sequence from 0-15. Counting column then row.
+  return decode_keypad(read_buff[0]);
 }
