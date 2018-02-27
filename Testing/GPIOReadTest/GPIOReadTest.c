@@ -12,23 +12,6 @@
 #define RECEIVING 0x20000
 #define STOP 0x000000
 
-/*
-volatile unsigned long SysTickCnt;
-
-void SysTick_Handler (void);
-void Delay (unsigned long tick);
-
-
-void SysTick_Handler (void) {
-  SysTickCnt++;
-}
-
-void Delay (unsigned long tick) {
-  uint64_t systickcnt;
-  systickcnt = SysTickCnt;
-  while ((SysTickCnt - systickcnt) < tick);
-}*/
-
 void EL_SERIAL_Init(void)
 {
   PINSEL_CFG_Type PinCfg;
@@ -63,7 +46,7 @@ size_t EL_SERIAL_SizeOfString(uint8_t string[])
   return length + 1;
 }
 
-void print(char string[])
+void print(char * string)
 {
   UART_Send(LPC_UART0, (uint8_t *) string, EL_SERIAL_SizeOfString((uint8_t *) string), BLOCKING);
 }
@@ -286,7 +269,7 @@ int main(){
         EL_LCD_EncodeASCIIString(lcd_string);
         EL_LCD_WriteChars(lcd_string, 16);
         EL_LCD_WriteAddress(0x40);
-        type_lookup(&lcd_string, type_slot);
+        type_lookup(lcd_string, type_slot);
         EL_LCD_EncodeASCIIString(lcd_string);
         EL_LCD_WriteChars(lcd_string, 16);
       }else{
@@ -333,7 +316,7 @@ int main(){
       EL_LCD_WriteAddress(0x40);
       char input_key = '\0';
       char input_chars[3] = {0, 0, 0};
-      char key_index = 0;
+      unsigned char key_index = 0;
       while(current_menu_state == TRIGGER_INPUT_1){
         input_key = EL_KEYPAD_ReadKey();
         if(input_key == 'A'){
@@ -344,7 +327,6 @@ int main(){
             if(channel_size == 0)
               channel_size = 1;
             current_menu_state = TRIGGER_INPUT_2;
-            print("HERE!");
           }
         }else{
           input_chars[key_index] = EL_UTIL_ASCIINumberCharacterToNumber(input_key);
@@ -368,7 +350,7 @@ int main(){
       EL_LCD_WriteAddress(0x40);
       char input_key = '\0';
       char input_chars[3] = {0, 0, 0};
-      char key_index = 0;
+      unsigned char key_index = 0;
       while(current_menu_state == TRIGGER_INPUT_2){
         input_key = EL_KEYPAD_ReadKey();
         if(input_key == 'A'){
@@ -420,7 +402,7 @@ int main(){
           EL_LCD_EncodeASCIIString(lcd_string);
           EL_LCD_WriteChars(lcd_string, 16);
           EL_LCD_WriteAddress(0x40);
-          type_lookup(&lcd_string, type_slot);
+          type_lookup(lcd_string, type_slot);
           EL_LCD_EncodeASCIIString(lcd_string);
           EL_LCD_WriteChars(lcd_string, 16);
         }else{
@@ -516,7 +498,7 @@ int main(){
       output_buffer[output_buffer_index] = '\n';
       output_buffer_index++;
       output_buffer[output_buffer_index] = '\0';
-      print(output_buffer);
+      print((char *) output_buffer);
       menu_key = EL_KEYPAD_CheckKey();
       if(menu_key == 'D'){
         current_menu_state = MENU_TOP;
