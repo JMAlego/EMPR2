@@ -24,8 +24,11 @@ uint8_t sequence_repeat[4] = {0,0,0,0};
 static uint8_t LCDcount = 0;
 
 ////////////////////////////////////////////////////////////////////////////////
+
 // Extra Functions
+
 uint8_t input_translate(uint8_t number_input[3], uint8_t in_count);
+void set_default(void);
 
 // Non-state functions
 void display_colour(uint8_t number);
@@ -62,14 +65,56 @@ uint8_t input_translate(uint8_t number_input[3], uint8_t in_count){
 
 // Non-state functions
 
+void set_default(void){
+  int i;
+  int j;
+  //default is 0
+  for (i = 0; i < 10; i++){
+    colour[i][0] = 0;
+    colour[i][1] = 0;
+    colour[i][2] = 0;
+  }
+  //set colours:
+  for (i = 0; i < 3; i++){
+    //1:Red, 2:Green, 3:Blue
+    colour[i+1][i] = 255;
+    //1:Yellow, 2:Cyan, 3:Magenta
+    colour[i+4][i] = 255;
+    colour[i+4][(i+1)%3] = 255;
+    //Greys and whites
+    for (j = 0; j < 3; j++){
+      colour[i+7][j] = (i+1)*85;
+    }
+    //0 is left black
+  }
+  for (i = 0; i < 4; i++){
+    sequence_lengths[i] = 4;
+    sequence[0][i] = (i%3)+1; //A: Red-Green-Blue-Red
+    sequence[1][i] = (i%3)+4; //B: Yellow-Cyan-Purple-Yellow
+    sequence[2][(i+1)%4] = (i+7)%10; //C: Fade-in
+    sequence[3][i] = rand() % 10; //D: Random
+    sequence[3][i+4] = rand() % 10;
+    sequence[3][i+8] = rand() % 10;
+    sequence[3][i+12] = rand() % 10;
+  }
+  sequence_lengths[3] = 16;
+}
 
 void display_colour(uint8_t number){
+  int8_t str[1];
+  display_LCD("Disp. Colour:   ",0);
+  sprintf(str,"%d",number);
+  display_LCD(str, 14);
   //set data
   setdata(colour[number][0],colour[number][1],colour[number][2]);
   //light up lamp
   send_data_UART(BLOCKING);
+
 }
 void display_sequence(uint8_t number){
+  display_LCD("Disp. Seq:      ",0);
+  uint8_t letter[1] = {number+65};
+  display_LCD(letter, 10);
   //display sequence
   int i = 0;
   int rep;
@@ -315,25 +360,26 @@ void opt_menu(void){
   }
 }
 void main_menu(void){
+  uint8_t reset = 1;
   while (1) {
-    display_LCD("0-9:Col, A-D:Seq*: Def, #:Repeat", 0);
+    if (reset==1) display_LCD("0-9:Col, A-D:Seq*: Def, #:Repeat", 0); reset = 0;
     menu(
       display_colour(1),
       display_colour(2),
       display_colour(3),
-      display_sequence(0),
+      display_sequence(0); reset = 1,
       display_colour(4),
       display_colour(5),
       display_colour(6),
-      display_sequence(1),
+      display_sequence(1); reset = 1,
       display_colour(7),
       display_colour(8),
       display_colour(9),
-      display_sequence(2),
-      def_menu(),
+      display_sequence(2); reset = 1,
+      def_menu(); reset = 1,
       display_colour(0),
-      opt_menu(),
-      display_sequence(3)
+      opt_menu(); reset = 1,
+      display_sequence(3); reset = 1
     );
   }
 }
@@ -342,34 +388,13 @@ int main(void){
   Full_Init();
   display_LCD("                                ",0);
 
+  set_default();
+
   /* //DEBUG light
   set_basic_data();
   display_colour(1);
   send_data_UART(BLOCKING);
   //*/
-
-  colour[0][0] = 255;
-  colour[0][1] = 0;
-  colour[0][2] = 0;
-
-  colour[1][0] = 0;
-  colour[1][1] = 255;
-  colour[1][2] = 0;
-
-  colour[2][0] = 0;
-  colour[2][1] = 0;
-  colour[2][2] = 255;
-
-  colour[4][0] = 255;
-  colour[4][1] = 255;
-  colour[4][2] = 0;
-
-
-
-  sequence[0][0] = 0;
-  sequence[0][1] = 1;
-  sequence[0][2] = 2;
-  sequence[0][3] = 3;
   /* //DEBUG LCD and keypad
   LCD_clear();
   while(1){
@@ -378,14 +403,6 @@ int main(void){
     printKeyToLCD(decode_keypad(read_buff[0]),LCDcount);
   }
   //*/
-
-
-  //LCD_clear();
-
-
-  //write_i2c(char_buff,2,LCD_ADDRESS);
-  //add_seq_to_display(sequence[0],0);
-
 
   while(1) main_menu();
 }
