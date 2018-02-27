@@ -29,7 +29,6 @@
 
 //END OF PREDEFINED ---
 
-
 const int SECOND = 1000000;
 const int MILISECOND = 1000;
 const int MICROSECOND = 1;
@@ -53,7 +52,7 @@ void speaker(int colour);
 void setLedsWithChar(char led_vals);
 void speaker_GPIO(int colour);
 void game_loop();
-
+void LCD_clear();
 //Function definitions
 
 void setLedsWithChar(char led_vals){
@@ -108,6 +107,7 @@ void speaker_GPIO(int colour){
 }
 
 void game_loop(){
+
   SysTick_Config(SystemCoreClock/SECOND - 6);
   //1000000 == second
   //1000 == milisecond
@@ -131,28 +131,19 @@ void game_loop(){
   int k = 0;
   int counter = 0;
 
-  EL_SERIAL_Init();
-  EL_I2C_Init();
-  EL_LCD_Init();
-  init_SEGMENTS();
-  PinCFG_Init(1);
-  // Init UART
-  UART_Init2();
-  //Enable TxD pin
-  UART_TxCmd((LPC_UART_TypeDef *) LPC_UART1, ENABLE);
-  // Init UART FIFO
-  UART_FIFO_CFG_Type FIFOCfg;
-  UART_FIFOConfigStructInit((UART_FIFO_CFG_Type *)&FIFOCfg); //default configuration
-  UART_FIFOConfig((LPC_UART_TypeDef *) LPC_UART1, (UART_FIFO_CFG_Type *) &FIFOCfg);
+  Full_Init();
 
-  uint8_t tester[3][3]= {{255, 0, 0}, {0, 255, 0}, {0, 0, 255}};
-  send_colours(tester, 3, 100000);
+  //uint8_t tester[3][3]= {{255, 0, 0}, {0, 255, 0}, {0, 0, 255}};
+  //send_colours(tester, 3, 100000);
 
   //First LCD screen; holds till A is pressed
   cont = '\0';
   while (cont != 'A'){
+    display_LCD("SIMPLE SIMON!   PRESS A TO CONT.", 0);
+
+
     strcpy(lcd_string, "SIMPLE SIMON!");
-    EL_LCD_ClearDisplay();
+    LCD_clear();
     EL_LCD_EncodeASCIIString(lcd_string);
     EL_LCD_WriteChars(lcd_string, 13);
     strcpy(lcd_string, "PRESS A TO CONT.");
@@ -167,7 +158,7 @@ void game_loop(){
   cont = '\0';
   while (cont != 'A'){
     strcpy(lcd_string, "A sequence will");
-    EL_LCD_ClearDisplay();
+    LCD_clear();
     EL_LCD_EncodeASCIIString(lcd_string);
     EL_LCD_WriteChars(lcd_string, 15);
     strcpy(lcd_string, "flash    PRESS A");
@@ -183,7 +174,7 @@ void game_loop(){
   cont = '\0';
   while (cont != 'A'){
     strcpy(lcd_string, "Copy the seq.");
-    EL_LCD_ClearDisplay();
+    LCD_clear();
     EL_LCD_EncodeASCIIString(lcd_string);
     EL_LCD_WriteChars(lcd_string, 13);
     strcpy(lcd_string, "using keypad- A");
@@ -195,7 +186,7 @@ void game_loop(){
 
   //Fourth LCD screen; holds till A pressed
   strcpy(lcd_string, "1 = Red  2 = Blu");
-  EL_LCD_ClearDisplay();
+  LCD_clear();
   EL_LCD_EncodeASCIIString(lcd_string);
   EL_LCD_WriteChars(lcd_string, 15);
   strcpy(lcd_string, "3 = Grn  4 = Ylw");
@@ -208,7 +199,7 @@ void game_loop(){
   cont = '\0';
   while (cont != 'A'){
     strcpy(lcd_string, "PRESS A TO START");
-    EL_LCD_ClearDisplay();
+    LCD_clear();
     EL_LCD_EncodeASCIIString(lcd_string);
     EL_LCD_WriteChars(lcd_string, 16);
     strcpy(lcd_string, "                ");
@@ -225,7 +216,7 @@ void game_loop(){
     SEGMENT_Write(counter, 0);
 
     strcpy(lcd_string, "WATCH THE SEQ...");
-    EL_LCD_ClearDisplay();
+    LCD_clear();
     EL_LCD_EncodeASCIIString(lcd_string);
     EL_LCD_WriteChars(lcd_string, 16);
 
@@ -272,7 +263,7 @@ void game_loop(){
     }
 
     strcpy(lcd_string, "INPUT SEQ.......");
-    EL_LCD_ClearDisplay();
+    LCD_clear();
     EL_LCD_EncodeASCIIString(lcd_string);
     EL_LCD_WriteChars(lcd_string, 16);
 
@@ -318,7 +309,7 @@ void game_loop(){
   cont = '\0';
   while (cont != 'A'){
     strcpy(lcd_string, "You got to      ");
-    EL_LCD_ClearDisplay();
+    LCD_clear();
     EL_LCD_EncodeASCIIString(lcd_string);
     EL_LCD_WriteChars(lcd_string, 16);
     sprintf(turn_string, "%02d turns!     -A", counter);
@@ -332,7 +323,7 @@ void game_loop(){
   cont = '\0';
   while (cont != 'A'){
     strcpy(lcd_string, " DO YOU WANT TO ");
-    EL_LCD_ClearDisplay();
+    LCD_clear();
     EL_LCD_EncodeASCIIString(lcd_string);
     EL_LCD_WriteChars(lcd_string, 16);
     strcpy(lcd_string, " PLAY AGAIN? -A ");
@@ -345,7 +336,7 @@ void game_loop(){
   cont = '\0';
   while (cont != '1' && cont != '2'){
     strcpy(lcd_string, "     1 = YES    ");
-    EL_LCD_ClearDisplay();
+    LCD_clear();
     EL_LCD_EncodeASCIIString(lcd_string);
     EL_LCD_WriteChars(lcd_string, 16);
     strcpy(lcd_string, "     2 = NO     ");
@@ -362,7 +353,7 @@ void game_loop(){
     case('2'):
       SEGMENT_Write(0, 0);
       strcpy(lcd_string, "   THANKS FOR   ");
-      EL_LCD_ClearDisplay();
+      LCD_clear();
       EL_LCD_EncodeASCIIString(lcd_string);
       EL_LCD_WriteChars(lcd_string, 16);
       strcpy(lcd_string, "    PLAYING!    ");
@@ -394,9 +385,10 @@ void tetris(){
 }
 
 int main(){
-  UART_Init();
-  tetris();
-  print("TESTING\r\n");
+  //UART_Init2();
+  //tetris();
+  //print("TESTING\r\n");
   game_loop();
+
   return 0;
 }
