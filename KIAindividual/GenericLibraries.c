@@ -95,7 +95,9 @@ const uint8_t KEY_TO_LCD_LOOKUP[4][4] = {{0xB1, 0xB2, 0xB3, 0xC1}, //1,2,3,A
                             {0xB4, 0xB5, 0xB6, 0xC2},   //4.5.6.B
                             {0xB7, 0xB8, 0xB9, 0xC3},   //7,8,9,C
                             {0xAA, 0xB0, 0xA3, 0xC4}};  //*,0.#,D
-static uint8_t LCD_buffer[32] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+uint8_t read_buff[0];
+
+static uint8_t LCD_buffer[32] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
 
 
 void print(uint8_t string[]);
@@ -120,13 +122,11 @@ void send_data_UART(int wait);
 void send_colours(uint8_t coloursRGB[][3], uint8_t length, uint32_t delay);
 void LCD_clear(void);
 void printKeyToLCD(int rrcc, int* LCDcount);
-void display_LCD(uint8_t string[], uint8_t LCD_address);
+void display_LCD(int8_t string[], uint8_t LCD_address);
 void loadToLCDbuffer(uint8_t buff[], uint8_t length, uint8_t* LCDcounter);
 void outputLCDbuff(void);
 uint8_t stringToLCD(uint8_t buff[], uint8_t out_buff[]);
-void SEGMENT_WriteHidden(int value, uint8_t dp_digit, int leading);
-void SEGMENT_Write(int int_value, int zeros);
-void SEGMENT_WriteFloat(double double_value, int zeros);
+uint8_t read_keypress(void);
 
 
 
@@ -150,7 +150,6 @@ void init_SEGMENTS(void){
   //data[5] = SAA1064_ALL;                      // Digit 4: All Segments On
   write_i2c(data, 6, EIGHT_SEG_ADDRESS);
 }
-
 void SEGMENT_WriteHidden(int value, uint8_t dp_digit, int leading){
   uint8_t digit_value;
   uint8_t data[6];
@@ -230,7 +229,6 @@ void SEGMENT_WriteHidden(int value, uint8_t dp_digit, int leading){
   }
  write_i2c(data, 5, EIGHT_SEG_ADDRESS);
 }
-
 void SEGMENT_Write(int int_value, int zeros){
   uint8_t dp_digit = 0;
   int leading = 1;
@@ -269,15 +267,6 @@ void SEGMENT_WriteFloat(double double_value, int zeros){
 
   SEGMENT_WriteHidden(value, dp_digit, leading);
 }
-
-/*void SysTick_Handler (void) {
-  SysTickCnt++;
-}
-void Delay (unsigned long tick) {
-  unsigned long systickcnt;
-  systickcnt = SysTickCnt;
-  while ((SysTickCnt - systickcnt) < tick);
-}*/
 
 void BreakFlagLow(void){LPC_UART1->LCR |= 0x40;}
 void BreakFlagHigh(void){LPC_UART1->LCR &= 0xBF;}
@@ -427,7 +416,6 @@ void set_basic_data(void){
     data[i] = 0xFF; // bits arrive in backwards order because endianness
   }
 }
-
 void send_data_UART(int wait){
   //MTBP
   BreakFlagHigh();
@@ -518,11 +506,15 @@ uint8_t stringToLCD(uint8_t buff[], uint8_t out_buff[]){
       switch (buff[i]){
         case ' ': out_buff[i] = 0xA0; break;
         case '*': out_buff[i] = 170; break;
+        case '/': out_buff[i] = 175; break;
+        case '!': out_buff[i] = 161; break;
         case '#': out_buff[i] = 163; break;
         case ':': out_buff[i] = 186; break;
         case '.': out_buff[i] = 174; break;
         case ',': out_buff[i] = 172; break;
         case '-': out_buff[i] = 173; break;
+        case '<': out_buff[i] = 188; break;
+        case '=': out_buff[i] = 189; break;
         case '>': out_buff[i] = 190; break;
         default:
           return i;
@@ -557,11 +549,18 @@ void outputLCDbuff(void){
     write_i2c(buff_char, 2, LCD_ADDRESS);
   }
 }
-void display_LCD(uint8_t string[], uint8_t LCD_address){
+void display_LCD(int8_t string[], uint8_t LCD_address){
+  Delay(100);
   uint8_t LCDcounter = LCD_address;
-  uint8_t* buff = string;
-  uint8_t out_buff[32] = "                                 ";
+  int8_t* buff = string;
+  int8_t out_buff[32] = "                                 ";
   uint8_t str_length = stringToLCD(buff, out_buff);
   loadToLCDbuffer(out_buff, str_length, &LCDcounter);
   outputLCDbuff();
+  Delay(100);
+}
+uint8_t read_keypress(void){
+  get_keypad_press(read_buff);
+  //the decoded keypad "rrcc" format makes a sequence from 0-15. Counting column then row.
+  return decode_keypad(read_buff[0]);
 }

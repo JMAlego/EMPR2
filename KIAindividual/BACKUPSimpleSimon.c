@@ -29,7 +29,7 @@
 
 //END OF PREDEFINED ---
 
-const int SECOND = 100000;
+const int SECOND = 1000000;
 const int MILISECOND = 1000;
 const int MICROSECOND = 1;
 
@@ -115,19 +115,23 @@ void game_loop(){
   GPIO_SetDir(0, SPEAKER, 1);
   GPIO_SetDir(1, ALL_LEDS, 1);
 
+  char lcd_string[32];
+  char turn_string[32];
   uint8_t sent[64][3];
+  uint8_t dmx[1][3];
   int sent_int[64];
   int receive[64];
   char cont = '\0';
-  char colour_choice = 0;
+  int colour_choice = 0;
   int choice = 0;
   int rec_counter = 0;
   int win_flag = 1;     //0 for nonsuccessful state, 1 for successful state; will only change if false
-  int rec_flag = 1;     //Used for checking when to stop receiving; Initially 1, turned off when the loop has filled all available receieve slots
-  int choice_flag = 1;  //Used to wait for valid input from the user. When 0, a valid choice has been made
+  int rec_flag = 1;   //Used for checking when to stop receiving; Initially 1, turned off when the loop has filled all available receieve slots
   int i = 0;
   int k = 0;
   int counter = 0;
+
+  Full_Init();
 
   //uint8_t tester[3][3]= {{255, 0, 0}, {0, 255, 0}, {0, 0, 255}};
   //send_colours(tester, 3, 100000);
@@ -135,51 +139,91 @@ void game_loop(){
   //First LCD screen; holds till A is pressed
   cont = '\0';
   while (cont != 'A'){
-    display_LCD("SIMPLE SIMON!   ", 0);
+    display_LCD("SIMPLE SIMON!", 0);
     display_LCD("PRESS A TO CONT.", 16);
+
+
+    strcpy(lcd_string, "SIMPLE SIMON!");
+    LCD_clear();
+    EL_LCD_EncodeASCIIString(lcd_string);
+    EL_LCD_WriteChars(lcd_string, 13);
+    strcpy(lcd_string, "PRESS A TO CONT.");
+    EL_LCD_EncodeASCIIString(lcd_string);
+    EL_LCD_WriteAddress(0x40);
+    EL_LCD_WriteChars(lcd_string, 16);
     cont = EL_KEYPAD_ReadKey();
   }
 
   //Second LCD screen; holds till A is pressed
+
   cont = '\0';
   while (cont != 'A'){
-    display_LCD("A sequence will ", 0);
-    display_LCD("flash    PRESS A", 16);
+    strcpy(lcd_string, "A sequence will");
+    LCD_clear();
+    EL_LCD_EncodeASCIIString(lcd_string);
+    EL_LCD_WriteChars(lcd_string, 15);
+    strcpy(lcd_string, "flash    PRESS A");
+    EL_LCD_EncodeASCIIString(lcd_string);
+    EL_LCD_WriteAddress(0x40);
+    EL_LCD_WriteChars(lcd_string, 16);
     cont = EL_KEYPAD_ReadKey();
   }
 
 
   //Third LCD screen; holds till A pressed
+
   cont = '\0';
   while (cont != 'A'){
-    display_LCD("Copy the seq.   ", 0);
-    display_LCD("using keypad - A", 16);
+    strcpy(lcd_string, "Copy the seq.");
+    LCD_clear();
+    EL_LCD_EncodeASCIIString(lcd_string);
+    EL_LCD_WriteChars(lcd_string, 13);
+    strcpy(lcd_string, "using keypad- A");
+    EL_LCD_EncodeASCIIString(lcd_string);
+    EL_LCD_WriteAddress(0x40);
+    EL_LCD_WriteChars(lcd_string, 15);
     cont = EL_KEYPAD_ReadKey();
   }
 
   //Fourth LCD screen; holds till A pressed
-  display_LCD("1 = Red  2 = Blu", 0);
-  display_LCD("3 = Grn  4 = RG ", 16);
-  Delay(5*SECOND);
-
+  strcpy(lcd_string, "1 = Red  2 = Blu");
+  LCD_clear();
+  EL_LCD_EncodeASCIIString(lcd_string);
+  EL_LCD_WriteChars(lcd_string, 15);
+  strcpy(lcd_string, "3 = Grn  4 = Ylw");
+  EL_LCD_EncodeASCIIString(lcd_string);
+  EL_LCD_WriteAddress(0x40);
+  EL_LCD_WriteChars(lcd_string, 16);
+  Delay(8*SECOND);
   //END OF SET UP LCD INSTRUCTIONS
+
   cont = '\0';
   while (cont != 'A'){
-    display_LCD("PRESS A TO START", 0);
-    display_LCD("                ", 16);
+    strcpy(lcd_string, "PRESS A TO START");
+    LCD_clear();
+    EL_LCD_EncodeASCIIString(lcd_string);
+    EL_LCD_WriteChars(lcd_string, 16);
+    strcpy(lcd_string, "                ");
+    EL_LCD_EncodeASCIIString(lcd_string);
+    EL_LCD_WriteAddress(0x40);
+    EL_LCD_WriteChars(lcd_string, 16);
     cont = EL_KEYPAD_ReadKey();
   }
 
   //GAME LOOP CONTAINED BELOW
-  /////////////////////////////////////////////////////////////////////////////
   while(win_flag == 1){
+
     counter++;
     SEGMENT_Write(counter, 0);
 
-    display_LCD("WATCH THE SEQ...", 0);
-    display_LCD("                ", 16);
+    strcpy(lcd_string, "WATCH THE SEQ...");
+    LCD_clear();
+    EL_LCD_EncodeASCIIString(lcd_string);
+    EL_LCD_WriteChars(lcd_string, 16);
+
 
     choice = rand() % 4;
+    //choice = (rand() % 4) + 1;
     sent_int[counter] = choice;
 
     //Convert choice to DMX function standard
@@ -210,53 +254,27 @@ void game_loop(){
         break;
     }
 
-
-    //Send the whole current sequence
-    send_colours(sent, counter, 2*SECOND);
-    //Speaker timings lined up to coincide
+    //Reassign a single colour to a DMX array in order to produce a tone at the same time
     for(k = 0; k < counter; k++){
-      speaker_GPIO((sent_int[counter])+1);
+      sent[i][0] = dmx[i][0];
+      sent[i][1] = dmx[i][1];
+      sent[i][2] = dmx[i][2];
+      send_colours(dmx, 1, 2*1000000);   //Had to write out 2 second delay in order to fit GENERATOR functions
+      speaker_GPIO(choice);
     }
 
-
-
-    display_LCD("INPUT THE SEQ...", 0);
-    display_LCD("                ", 16);
+    strcpy(lcd_string, "INPUT SEQ.......");
+    LCD_clear();
+    EL_LCD_EncodeASCIIString(lcd_string);
+    EL_LCD_WriteChars(lcd_string, 16);
 
     while(rec_flag == 1){
 
-      choice_flag = 1;
-
+      colour_choice = 0;
       //Wait until a valid key is entered; prevents illegal input
-      while(choice_flag == 1){
-
+      while(colour_choice != '1' && colour_choice != '2' && colour_choice != '3' && colour_choice != '4'){
         colour_choice = EL_KEYPAD_ReadKey();
-
-        switch(colour_choice){
-          case '1':
-            choice_flag = 0;
-            break;
-
-          case '2':
-            choice_flag = 0;
-            break;
-
-          case '3':
-            choice_flag = 0;
-            break;
-
-          case '4':
-            choice_flag = 0;
-            break;
-
-          default:
-            choice_flag = 1;
-            break;
-
-        }
       }
-
-
 
       //append valid input to the receive array
       receive[rec_counter] = colour_choice;
@@ -271,7 +289,6 @@ void game_loop(){
     for(i = 0; i < counter; i ++){
       if(sent_int[i] == receive[i]){
         win_flag = 1;
-        rec_flag = 1;
         continue;
       } else {
         win_flag = 0;
@@ -289,28 +306,44 @@ void game_loop(){
     }
 
   }
-  /////////////////////////////////////////////////////////////////////////////
 
   cont = '\0';
   while (cont != 'A'){
-    display_LCD("You got to      ", 0);
-    uint8_t str[16];
-    sprintf(str, "%02d turns!     -A", counter);
-    display_LCD(str, 16);
+    strcpy(lcd_string, "You got to      ");
+    LCD_clear();
+    EL_LCD_EncodeASCIIString(lcd_string);
+    EL_LCD_WriteChars(lcd_string, 16);
+    sprintf(turn_string, "%02d turns!     -A", counter);
+    strcpy(lcd_string, turn_string);
+    EL_LCD_EncodeASCIIString(lcd_string);
+    EL_LCD_WriteAddress(0x40);
+    EL_LCD_WriteChars(lcd_string, 16);
     cont = EL_KEYPAD_ReadKey();
   }
 
   cont = '\0';
   while (cont != 'A'){
-    display_LCD(" DO YOU WANT TO ", 0);
-    display_LCD(" PLAY AGAIN? -A ", 16);
+    strcpy(lcd_string, " DO YOU WANT TO ");
+    LCD_clear();
+    EL_LCD_EncodeASCIIString(lcd_string);
+    EL_LCD_WriteChars(lcd_string, 16);
+    strcpy(lcd_string, " PLAY AGAIN? -A ");
+    EL_LCD_EncodeASCIIString(lcd_string);
+    EL_LCD_WriteAddress(0x40);
+    EL_LCD_WriteChars(lcd_string, 16);
     cont = EL_KEYPAD_ReadKey();
   }
 
   cont = '\0';
   while (cont != '1' && cont != '2'){
-    display_LCD("     1 = YES    ", 0);
-    display_LCD("     2 = NO     ", 16);
+    strcpy(lcd_string, "     1 = YES    ");
+    LCD_clear();
+    EL_LCD_EncodeASCIIString(lcd_string);
+    EL_LCD_WriteChars(lcd_string, 16);
+    strcpy(lcd_string, "     2 = NO     ");
+    EL_LCD_EncodeASCIIString(lcd_string);
+    EL_LCD_WriteAddress(0x40);
+    EL_LCD_WriteChars(lcd_string, 16);
     cont = EL_KEYPAD_ReadKey();
   }
 
@@ -320,14 +353,19 @@ void game_loop(){
       break;
     case('2'):
       SEGMENT_Write(0, 0);
-      display_LCD("   THANKS FOR   ", 0);
-      display_LCD("     PLAYING    ", 16);
-
+      strcpy(lcd_string, "   THANKS FOR   ");
+      LCD_clear();
+      EL_LCD_EncodeASCIIString(lcd_string);
+      EL_LCD_WriteChars(lcd_string, 16);
+      strcpy(lcd_string, "    PLAYING!    ");
+      EL_LCD_EncodeASCIIString(lcd_string);
+      EL_LCD_WriteAddress(0x40);
+      EL_LCD_WriteChars(lcd_string, 16);
       break;
   }
 }
 
-/*void tetris_play(long duration, float freq){
+void tetris_play(long duration, float freq){
   int i;
   long ontime = (long)(((float) SECOND)/freq);
   for(i = 0; i < (duration/ontime); i++){
@@ -347,19 +385,12 @@ void tetris(){
   }
 }
 
-*/
-
 int main(){
-  Full_Init();
-  EL_SERIAL_Init();
-  game_loop();
-
-  /*
-  GPIO_SetDir(0, SPEAKER, 1);
-  speaker_GPIO(1);  //red       highest
-  speaker_GPIO(2);  //blue
-  speaker_GPIO(3);  //green
-  speaker_GPIO(4);  //RG        lowest  */
+  //UART_Init2();
+  //tetris();
+  //print("TESTING\r\n");
+  //game_loop();
+  LCD_clear();
 
   return 0;
 }
