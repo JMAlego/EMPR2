@@ -28,9 +28,7 @@ void serial_init(void)
 	UART_CFG_Type UARTConfigStruct;			// UART Configuration structure variable
 	UART_FIFO_CFG_Type UARTFIFOConfigStruct;	// UART FIFO configuration Struct variable
 	PINSEL_CFG_Type PinCfg;				// Pin configuration for UART
-/*
-	 * Initialize UART pin connect
-*/
+	
 	PinCfg.Funcnum = 1;
 	PinCfg.OpenDrain = 0;
 	PinCfg.Pinmode = 0;
