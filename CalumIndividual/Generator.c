@@ -1,4 +1,5 @@
 #include "GenericLibraries.c"
+#include "IndividualComponent3.c"
 
 #define setdata(int1,int2,int3) data[0] = int1; data[1] = int2; data[2] = int3
 #define _cb(no,com) case no: {com;break;}

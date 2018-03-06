@@ -289,29 +289,4 @@ void IC3(void){
   char buff[1] = {0x0F};
   write_i2c(buff,1,0x21);
   SEGMENT_WriteHidden(seg_val, 5, 1); // Write 0
-
-	display_LCD("DEF: 0-9 or A-D *:DISP ALL #:CXL",0);
-	menu(
-		define_colour(1),
-		define_colour(2),
-		define_colour(3),
-		define_sequence(0),
-		define_colour(4),
-		define_colour(5),
-		define_colour(6),
-		define_sequence(1),
-		define_colour(7),
-		define_colour(8),
-		define_colour(9),
-		define_sequence(2),
-		display_all(),
-		define_colour(0),
-		return,
-		define_sequence(3)
-	)
-
-}
-
-int main(void){
-	IC3();
 }
