@@ -14,6 +14,16 @@
 #include "lib/empr_lib_serial.c"
 #include <string.h>
 
+#define menu(com1, com2, com3, com4, com5, \
+  com6, com7, com8, com9, com10, com11,\
+  com12, com13, com14, com15, com16) \
+  do { uint8_t key = read_keypress(); \
+  switch (key){\
+    _cb(0, com1)  _cb(1, com2)  _cb(2, com3)  _cb(3, com4)\
+    _cb(4, com5)  _cb(5, com6)  _cb(6, com7)  _cb(7, com8)\
+    _cb(8, com9)  _cb(9, com10) _cb(10,com11) _cb(11,com12)\
+    _cb(12,com13) _cb(13,com14) _cb(14,com15) _cb(15,com16)}\
+  } while(0)
 
 #define SENDING 0x40040
 #define RECEIVING 0x20000

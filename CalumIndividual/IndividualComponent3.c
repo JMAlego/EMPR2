@@ -1,11 +1,11 @@
 #include "GenericLibraries.c"
 #include "lpc17xx_adc.h"
 
-//double samples[5] = {1.12, 1.36, 1.68, 2.40, 3.36};
-int intensity_at_interval[100];
+uint8_t intensity_at_interval[100];
+uint8_t sequence_of_colours[20][3];
 
 void LCD_clear_lower(void){
-	int i;
+	uint8_t i;
   uint8_t address[2];
   address[0] = 0x00;
   uint8_t buff_char[2];
@@ -18,7 +18,7 @@ void LCD_clear_lower(void){
   }
 }
 
-int print_usb(char *buf,int length)
+int print_usb(char *buf,uint8_t length)
 {
 	return(UART_Send((LPC_UART_TypeDef *)LPC_UART0,(uint8_t *)buf,length, BLOCKING));
 }
@@ -28,7 +28,6 @@ void serial_init(void)
 	UART_CFG_Type UARTConfigStruct;			// UART Configuration structure variable
 	UART_FIFO_CFG_Type UARTFIFOConfigStruct;	// UART FIFO configuration Struct variable
 	PINSEL_CFG_Type PinCfg;				// Pin configuration for UART
-	
 	PinCfg.Funcnum = 1;
 	PinCfg.OpenDrain = 0;
 	PinCfg.Pinmode = 0;
@@ -38,30 +37,13 @@ void serial_init(void)
 	PINSEL_ConfigPin(&PinCfg);
 	PinCfg.Pinnum = 3;
 	PINSEL_ConfigPin(&PinCfg);
-
-/* Initialize UART Configuration parameter structure to default state:
-	 * - Baudrate = 9600bps
-	 * - 8 data bit
-	 * - 1 Stop bit
-	 * - None parity
-*/
+	// Initialize UART Configuration parameter structure to default state:
 	UART_ConfigStructInit(&UARTConfigStruct);
-
-/* Initialize FIFOConfigStruct to default state:
-	 * - FIFO_DMAMode = DISABLE
-	 * - FIFO_Level = UART_FIFO_TRGLEV0
-	 * - FIFO_ResetRxBuf = ENABLE
-	 * - FIFO_ResetTxBuf = ENABLE
-	 * - FIFO_State = ENABLE
-*/
+	// Initialize FIFOConfigStruct to default state:
 	UART_FIFOConfigStructInit(&UARTFIFOConfigStruct);
-
-	// Built the basic structures, lets start the devices/
-	// USB serial
 	UART_Init((LPC_UART_TypeDef *)LPC_UART0, &UARTConfigStruct);		// Initialize UART0 peripheral with given to corresponding parameter
 	UART_FIFOConfig((LPC_UART_TypeDef *)LPC_UART0, &UARTFIFOConfigStruct);	// Initialize FIFO for UART0 peripheral
 	UART_TxCmd((LPC_UART_TypeDef *)LPC_UART0, ENABLE);			// Enable UART Transmit
-
 }
 
 void ADC_Config_Piezo(void){
@@ -84,129 +66,8 @@ void ADC_Config_IR(void){
   PINSEL_ConfigPin(&pincfg);
 }
 
-// void IR_Calibration(){                                        //Voltage proportional to distance throughout
-//   display_LCD("CALIBRATION MODE", 0);
-//
-//   uint8_t key;																																//Key pressed (if = 0, end loop)
-//   double raw_adc, voltage;
-//   char output[16];
-//
-//   display_LCD("Object at 80cm", 16);
-//   while (key != 14){
-//     key = read_keypress();
-//   }                                                        										//When a key (Piezo?) pressed, then test data ready
-//   raw_adc = ADC_ChannelGetData(LPC_ADC, 1);                                   //Analogue signal from pin 16 converted to digital
-//   voltage = (raw_adc / 4096) * 3.3;                                           //Voltage level of pin 16 ((/ 4096) * 3.3)
-//   samples[0] = voltage;
-//   sprintf(output, "READ:%fV", voltage);
-//   display_LCD(output,16);
-// 	Delay(20000);
-// 	LCD_clear_lower();
-//
-//   display_LCD("Object at 40cm",16);
-//   while (key != 14){
-//     key = read_keypress();
-//   }
-//   raw_adc = ADC_ChannelGetData(LPC_ADC, 1);
-//   voltage = (raw_adc / 4096) * 3.3;
-//   samples[1] = voltage;
-//   sprintf(output, "READ: %fV", voltage);
-//   display_LCD(output,16);
-// 	Delay(20000);
-// 	LCD_clear_lower();
-//
-//   display_LCD("Object at 10cm", 16);
-//   while (key != 14){
-//     key = read_keypress();
-//   }
-//   raw_adc = ADC_ChannelGetData(LPC_ADC, 1);
-//   voltage = (raw_adc / 4096) * 3.3;
-//   samples[2] = voltage;
-// 	sprintf(output, "READ:%fV", voltage);
-//   display_LCD(output,16);
-// 	Delay(20000);
-// 	LCD_clear_lower();
-//
-//   display_LCD("Object at 7cm ", 16);
-//   while (key != 14){
-//     key = read_keypress();
-//   }
-//   raw_adc = ADC_ChannelGetData(LPC_ADC, 1);
-//   voltage = (raw_adc / 4096) * 3.3;
-//   samples[3] = voltage;
-//   sprintf(output, "READ:%fV", voltage);
-//   display_LCD(output,16);
-// 	Delay(20000);
-// 	LCD_clear_lower();
-//
-//   display_LCD("Object at 10cm ", 16);
-//   while (key != 14){
-//     key = read_keypress();
-//   }
-//   raw_adc = ADC_ChannelGetData(LPC_ADC, 1);
-//   voltage = (raw_adc / 4096) * 3.3;
-//   samples[4] = voltage;
-//   sprintf(output, "READ:%fV", voltage);
-//   display_LCD(output,16);
-// 	Delay(20000);
-//   LCD_clear();
-//   display_LCD("DONE!", 6);
-// 	Delay(20000);
-// 	LCD_clear();
-// }
-//
-// double SENSOR_VoltageToDistance2(double voltage){
-//   double m = 0;
-//   double inv_distance;
-//   double c = 0;
-//   double distance;
-//   double distances[5] = {1/30.0, 1/20.0, 1/15.0, 1/10.0, 1/5.0};               //X-axis = 1/distance                                                                      //
-//                                                                               //Y-axis = V-out = sample voltage
-//   if(voltage <= samples[0]){//80
-//     distance = 30;
-//   } else if (voltage > samples[4]){//5
-//     distance = 5;
-//   } else if (voltage >= samples[3] && voltage < samples[4]) {                 //Using Y = mX + c
-//     m = (samples[4]-samples[3])/(distances[4]-distances[3]);                  //m = dY/dX
-//     c = samples[4] - (distances[4] * m);                                      //c = Y - mX
-//   }else if (voltage >= samples[2] && voltage < samples[3]) {
-//     m = (samples[3]-samples[2])/(distances[3]-distances[2]);
-//     c = samples[3] - (distances[3] * m);
-//   }else if (voltage >= samples[1] && voltage < samples[2]) {
-//     m = (samples[2]-samples[1])/(distances[2]-distances[1]);
-//     c = samples[2] - (distances[2] * m);
-//   }else if (voltage >= samples[0] && voltage < samples[1]) {
-//     m = (samples[1]-samples[0])/(distances[1]-distances[0]);
-//     c = samples[1] - (distances[1] * m);
-//   }
-//   if(m!=0){
-//     inv_distance = (voltage-c)/m;                                             //(Y - c) / m = X
-//     distance = 1/inv_distance;
-//   }
-//   return distance;
-// }
-//
-// void IR_Func(void){
-// 	int intensity_val = 0;
-// 	SEGMENT_WriteHidden(0, 5, 1);
-// 	while(1){
-// 		char out[8];
-//     sprintf(out, "IR: %dv\n\r", ADC_ChannelGetData(LPC_ADC, 1));
-//     print_usb(out, 11);
-// 		if ((int) ADC_ChannelGetData(LPC_ADC, 1) > 3750){
-// 			intensity_val = 255;
-// 		} else {
-// 			intensity_val = ADC_ChannelGetData(LPC_ADC, 1) - 1200;
-// 			if (intensity_val >= 0){
-// 				intensity_val = intensity_val * 0.1;
-// 			}
-// 		}
-// 		SEGMENT_WriteHidden(intensity_val, 5, 1);
-// 	}
-// }
-
 void Save_Pattern_Using_IR(void){
-	int interval;
+	uint8_t interval;
 	uint8_t key;
 	display_LCD("Create fade out,",0);
 	display_LCD("Max length of 10",16);
@@ -251,6 +112,7 @@ void Save_Pattern_Using_IR(void){
 	display_LCD("Pattern saved      ",0);display_LCD("Press # to      ",0);
 	display_LCD("select intensity",16);
 	display_LCD("                   ",16);
+	//=====================IMPLEMENT AFTER FINAL STATE============================
 	for (interval = 0; interval < 100; interval++){
 		data[0] = (data[0] / 255) * intensity_at_interval[interval];
 		data[1] = (data[1] / 255) * intensity_at_interval[interval];
@@ -327,7 +189,7 @@ uint8_t Get_Intensity_From_IR(void){
 	return seg_val;
 }
 
-uint8_t Get_Hue_From_IR(void){ //Loop required
+uint8_t Get_Hue_From_IR(void){
 	//0 - 8cm = Blue, 8 - 12cm = Green, 12 - 30cm = read
 	uint8_t hue;
 	display_LCD("Press # to      ",0);
@@ -368,11 +230,50 @@ void Set_Colour_Via_IR(void){
 	send_data_UART(1);
 }
 
+void Define_Sequence(uint8_t Piezo_OR_IR){ // 0 or 1 resp.
+	uint8_t key;
+	uint8_t pos_in_seq = 0;
+	uint8_t hue;
+	uint8_t intensity;
+	display_LCD("After defining  a hue, press A  ",0);
+	Delay(1000000);
+	display_LCD("To move to next state, press *  ",0);
+	Delay(1000000);
+	display_LCD("When finished,  press #         ",0);
+	Delay(1000000);
+	while(1){
+		if (Piezo_OR_IR == 0){
+			hue = Get_Hue_From_Piezo();
+			intensity = Get_Intensity_From_Piezo();
+		} else {
+			hue = Get_Hue_From_IR();
+			intensity = Get_Intensity_From_IR();
+		}
+		sequence_of_colours[pos_in_seq][hue] = intensity;
+		display_LCD("State XX. R:XXX,G:XXX, B:XXX.   ",0);
+		display_LCD(pos_in_seq,6);
+		display_LCD(sequence_of_colours[pos_in_seq][0],12);
+		display_LCD(sequence_of_colours[pos_in_seq][1],18);
+		display_LCD(sequence_of_colours[pos_in_seq][2],25);
+		while(1){
+			key = read_keypress();
+			if (key == 3 || key == 12 || key == 14){
+				break;
+			}
+		}
+		if(key == 12){
+			pos_in_seq++;
+		} else if (key == 14){
+			break;
+		}
+	}
+}
+
 void IC3(void){
 	serial_init();
   Full_Init();
   LCD_clear();
-  int seg_val = 0;
+  uint8_t seg_val = 0;
   char test[10] = "test\n\r";
   print_usb(test,10);
   //Configure the pin connect (multiplexer) block
@@ -389,15 +290,26 @@ void IC3(void){
   write_i2c(buff,1,0x21);
   SEGMENT_WriteHidden(seg_val, 5, 1); // Write 0
 
-  // do {
-  //   /*char out[8];
-  //   sprintf(out, "Piezo: %dv | IR: %dv\n\r", ADC_ChannelGetData(LPC_ADC, 0), ADC_ChannelGetData(LPC_ADC, 1));
-  //   print_usb(out, 27);*/
-	//
-  //   SEGMENT_WriteHidden(seg_val,5,1);
-  //   read_i2c(read_buff,1,0x21);
-  //   Delay(100000);
-  // } while(1);//read_buff[0] != 0xF);
+	display_LCD("DEF: 0-9 or A-D *:DISP ALL #:CXL",0);
+	menu(
+		define_colour(1),
+		define_colour(2),
+		define_colour(3),
+		define_sequence(0),
+		define_colour(4),
+		define_colour(5),
+		define_colour(6),
+		define_sequence(1),
+		define_colour(7),
+		define_colour(8),
+		define_colour(9),
+		define_sequence(2),
+		display_all(),
+		define_colour(0),
+		return,
+		define_sequence(3)
+	)
+
 }
 
 int main(void){
