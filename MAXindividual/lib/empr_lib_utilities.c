@@ -1,6 +1,7 @@
 #ifndef EMPR_LIB_UTILITIES_C
 #define EMPR_LIB_UTILITIES_C
 
+
 #include "empr_lib_utilities.h"
 
 void SysTick_Handler (void) {

@@ -105,7 +105,6 @@ void init_SEGMENTS(void);
 void SEGMENT_WriteFloat(double double_value, int zeros);
 void SEGMENT_WriteHidden(int value, uint8_t dp_digit, int leading);
 void SEGMENT_Write(int int_value, int zeros);
-//void Delay (unsigned long tick);
 void BreakFlagLow(void);
 void BreakFlagHigh(void);
 void Full_Init(void);
@@ -128,7 +127,7 @@ void outputLCDbuff(void);
 uint8_t stringToLCD(uint8_t buff[], uint8_t out_buff[]);
 uint8_t read_keypress(void);
 
-
+//void Delay (unsigned long tick);
 
 
 void print(uint8_t string[]){
