@@ -14,6 +14,16 @@
 #include "lib/empr_lib_serial.c"
 #include <string.h>
 
+#define menu(com1, com2, com3, com4, com5, \
+  com6, com7, com8, com9, com10, com11,\
+  com12, com13, com14, com15, com16) \
+  do { uint8_t key = read_keypress(); \
+  switch (key){\
+    _cb(0, com1)  _cb(1, com2)  _cb(2, com3)  _cb(3, com4)\
+    _cb(4, com5)  _cb(5, com6)  _cb(6, com7)  _cb(7, com8)\
+    _cb(8, com9)  _cb(9, com10) _cb(10,com11) _cb(11,com12)\
+    _cb(12,com13) _cb(13,com14) _cb(14,com15) _cb(15,com16)}\
+  } while(0)
 
 #define SENDING 0x40040
 #define RECEIVING 0x20000
@@ -96,6 +106,7 @@ const uint8_t KEY_TO_LCD_LOOKUP[4][4] = {{0xB1, 0xB2, 0xB3, 0xC1}, //1,2,3,A
                             {0xB7, 0xB8, 0xB9, 0xC3},   //7,8,9,C
                             {0xAA, 0xB0, 0xA3, 0xC4}};  //*,0.#,D
 uint8_t read_buff[0];
+uint8_t IC3_keypad_col = 0;
 
 static uint8_t LCD_buffer[32] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
 
@@ -362,7 +373,16 @@ void write_i2c(uint8_t* buffer, int length, int address){
   I2C_MasterTransferData(LPC_I2C1, &setup, I2C_TRANSFER_POLLING);
 }
 
+void Modified_get_keypad_press_for_IC3(uint8_t* read_buff){
+	char out[8];
+  write_i2c(BUFF_FF,1, 0x21);
+  write_i2c(&BUFF_COL[IC3_keypad_col],1,0x21);
+  read_i2c(read_buff, 1, 0x21);
+  IC3_keypad_col = (IC3_keypad_col+1) % 4;
+}
+
 void get_keypad_press(uint8_t* read_buff){
+  char out[8];
   write_i2c(BUFF_FF,1, 0x21);
   int col = 0;
   while(1){
@@ -381,6 +401,7 @@ void get_keypad_press(uint8_t* read_buff){
     col = (col+1) % 4;
   }
 }
+
 uint8_t decode_keypad(uint8_t input){
   uint8_t output; //0x0000rrcc
   switch(input&0x0F){
@@ -559,6 +580,13 @@ void display_LCD(int8_t string[], uint8_t LCD_address){
   outputLCDbuff();
   Delay(100);
 }
+
+uint8_t Modified_read_keypress_for_IC3(void){
+	Modified_get_keypad_press_for_IC3(read_buff);
+  //the decoded keypad "rrcc" format makes a sequence from 0-15. Counting column then row.
+  return decode_keypad(read_buff[0]);
+}
+
 uint8_t read_keypress(void){
   get_keypad_press(read_buff);
   //the decoded keypad "rrcc" format makes a sequence from 0-15. Counting column then row.

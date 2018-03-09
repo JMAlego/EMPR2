@@ -222,17 +222,17 @@ int main(){
   int channel_address = 0;
   while(1){
     while(current_menu_state == MENU_TOP){
-      strcpy(lcd_string, "0=MANUAL CAPTURE");
+      strcpy(lcd_string, "MENU:  2=MANUAL ");
       EL_LCD_ClearDisplay();
       EL_LCD_EncodeASCIIString(lcd_string);
       EL_LCD_WriteChars(lcd_string, 16);
-      strcpy(lcd_string, "8=TRIGGER CAP.");
+      strcpy(lcd_string, "5=DISP 8=TRIGGER");
       EL_LCD_EncodeASCIIString(lcd_string);
       EL_LCD_WriteAddress(0x40);
-      EL_LCD_WriteChars(lcd_string, 14);
+      EL_LCD_WriteChars(lcd_string, 16);
       menu_key = EL_KEYPAD_ReadKey();
       switch (menu_key){
-        case '0':
+        case '2':
           strcpy(lcd_string, "CAPTURING");
           EL_LCD_ClearDisplay();
           EL_LCD_EncodeASCIIString(lcd_string);
@@ -281,13 +281,13 @@ int main(){
       }
       menu_key = EL_KEYPAD_ReadKey();
       switch (menu_key) {
-        case '#':
+        case '#': //Next
           slot_offset++;
           if(slot_offset == 128){
             slot_offset = -1;
           }
           break;
-        case '*':
+        case '*': //Previous
           slot_offset--;
           if(slot_offset == -2){
             slot_offset = 127;
@@ -296,8 +296,20 @@ int main(){
         case '0':
           errors = getFrame(&type_slot, slots);
           break;
-        case 'D':
+        case 'D': //Exit
           current_menu_state = MENU_TOP;
+          break;
+        case 'A': //Help
+          EL_LCD_WriteAddress(0x00);
+          strcpy(lcd_string, "NEXT=# PREV=*   ");
+          EL_LCD_EncodeASCIIString(lcd_string);
+          EL_LCD_WriteChars(lcd_string, 16);
+          EL_LCD_WriteAddress(0x40);
+          strcpy(lcd_string, "CAPTURE=0 D=BACK");
+          EL_LCD_EncodeASCIIString(lcd_string);
+          EL_LCD_WriteChars(lcd_string, 16);
+
+          EL_KEYPAD_ReadKey();
           break;
       }
     }
@@ -457,6 +469,18 @@ int main(){
           break;
         case 'D': //Exit
           current_menu_state = MENU_TOP;
+          break;
+        case 'A': //Help
+          EL_LCD_WriteAddress(0x00);
+          strcpy(lcd_string, "NEXT=# PREV=*   ");
+          EL_LCD_EncodeASCIIString(lcd_string);
+          EL_LCD_WriteChars(lcd_string, 16);
+          EL_LCD_WriteAddress(0x40);
+          strcpy(lcd_string, "CAPTURE=0 D=BACK");
+          EL_LCD_EncodeASCIIString(lcd_string);
+          EL_LCD_WriteChars(lcd_string, 16);
+
+          EL_KEYPAD_ReadKey();
           break;
       }
       //Read DMX

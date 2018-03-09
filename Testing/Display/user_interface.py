@@ -5,6 +5,7 @@ gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk, GObject, Pango
 from multiprocessing import Process, Value, Array
 from ui_channel_display import UIChannelDisplay
+from help_window import UIHelp
 
 class DisplayUI(Gtk.Window):
 
@@ -19,6 +20,7 @@ class DisplayUI(Gtk.Window):
         self.set_default_size(800, 600)
         self.set_border_width(10)
         self.channel_windows = {}
+        self.packet_display_count = 0
 
         hbox = Gtk.Box(spacing=10)
         hbox.set_homogeneous(False)
@@ -27,13 +29,23 @@ class DisplayUI(Gtk.Window):
         vbox_right = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
         vbox_right.set_homogeneous(False)
 
+        right_hbox = Gtk.Box(spacing=10)
+        right_hbox.set_homogeneous(False)
+
         hbox.pack_start(vbox_left, True, True, 0)
         hbox.pack_start(vbox_right, True, True, 0)
+        vbox_right.pack_start(right_hbox, False, True, 0)
 
-        label = Gtk.Label("Packet Count: 0")
+
+        label = Gtk.Label("Packets Received Count: 0")
         label.set_line_wrap(True)
-        vbox_right.pack_start(label, False, True, 0)
+        right_hbox.pack_start(label, False, True, 0)
         self.packet_count_label = label
+
+        label = Gtk.Label("Packets Displayed Count: 0")
+        label.set_line_wrap(True)
+        right_hbox.pack_start(label, False, True, 0)
+        self.packet_display_label = label
 
         scrolledwindow = Gtk.ScrolledWindow()
 
@@ -59,20 +71,28 @@ class DisplayUI(Gtk.Window):
         label = Gtk.Label("Menu")
         vbox_left.pack_start(label, False, True, 0)
 
-        button = Gtk.Button(label="Reset Count")
+        button = Gtk.Button(label="Reset Received Count")
         button.connect("clicked", self.btn_reset_count)
-        label.set_mnemonic_widget(button)
+        vbox_left.pack_start(button, False, True, 0)
+
+        button = Gtk.Button(label="Reset Displayed Count")
+        button.connect("clicked", self.btn_reset_displayed_count)
         vbox_left.pack_start(button, False, True, 0)
 
         button = Gtk.Button(label="Single Capture")
         button.connect("clicked", self.btn_single_capture)
-        label.set_mnemonic_widget(button)
         vbox_left.pack_start(button, False, True, 0)
 
-        button = Gtk.Button(label="Continuous Capture")
+        button = Gtk.Button(label="Start Continuous Capture")
         button.connect("clicked", self.btn_multi_capture)
-        label.set_mnemonic_widget(button)
         vbox_left.pack_start(button, False, True, 0)
+        self.cont_cap_button = button
+
+        button = Gtk.Button(label="Stop Continuous Capture")
+        button.set_sensitive(False)
+        button.connect("clicked", self.btn_stop_multi_capture)
+        vbox_left.pack_start(button, False, True, 0)
+        self.stop_cont_cap_button = button
 
         channel_monitor_frame = Gtk.Frame(label="Channel Monitor")
 
@@ -98,6 +118,10 @@ class DisplayUI(Gtk.Window):
         channel_monitor_frame.add(channel_monitor_box)
         vbox_left.pack_start(channel_monitor_frame, False, True, 0)
 
+        button = Gtk.Button(label="Display Help Info")
+        button.connect("clicked", self.on_help_button_click)
+        vbox_left.pack_start(button, False, True, 0)
+
         self.add(hbox)
 
         self.timeout_id = GObject.timeout_add(100, self.on_timeout, None)
@@ -105,8 +129,12 @@ class DisplayUI(Gtk.Window):
     def update_data(self, data):
         self.packet_data.get_buffer().set_text(data)
 
+    def on_help_button_click(self, button):
+        help_window = UIHelp(self)
+
     def on_timeout(self, event=None):
-        self.packet_count_label.set_text("Packet Count: " + str(self.packet_count_value.value))
+        self.packet_count_label.set_text("Packets Received Count: " + str(self.packet_count_value.value))
+        self.packet_display_label.set_text("Packets Displayed Count: " + str(self.packet_display_count))
         if self.mode == "SINGLE_CAPTURE":
             self.packet_snapshot = self.packet_last_value[:]
             index = 0
@@ -115,6 +143,7 @@ class DisplayUI(Gtk.Window):
                 index += 1
             for cid, child in self.channel_windows.items():
                 child.update_values()
+            self.packet_display_count += 1
             self.mode = "WAITING"
         if self.mode == "MULTI_CAPTURE":
             self.packet_snapshot = self.packet_last_value[:]
@@ -124,16 +153,29 @@ class DisplayUI(Gtk.Window):
                 index += 1
             for cid, child in self.channel_windows.items():
                 child.update_values()
+            self.packet_display_count += 1
         return True
 
     def btn_reset_count(self, event):
         self.reset_count.value = 1
 
+    def btn_reset_displayed_count(self, event):
+        self.packet_display_count = 0
+
     def btn_single_capture(self, event):
+        self.cont_cap_button.set_sensitive(True)
+        self.stop_cont_cap_button.set_sensitive(False)
         self.mode = "SINGLE_CAPTURE"
 
-    def btn_multi_capture(self, event):
+    def btn_multi_capture(self, button):
+        button.set_sensitive(False)
+        self.stop_cont_cap_button.set_sensitive(True)
         self.mode = "MULTI_CAPTURE"
+
+    def btn_stop_multi_capture(self, button):
+        button.set_sensitive(False)
+        self.cont_cap_button.set_sensitive(True)
+        self.mode = "WAITING"
 
     def btn_create_channel_monitor(self, event):
         channel_size = 3

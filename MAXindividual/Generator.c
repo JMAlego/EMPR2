@@ -1,8 +1,17 @@
 #include "GenericLibraries.c"
-#include "IndividualComponent3.c"
 
 #define setdata(int1,int2,int3) data[0] = int1; data[1] = int2; data[2] = int3
 #define _cb(no,com) case no: {com;break;}
+#define menu(com1, com2, com3, com4, com5, \
+  com6, com7, com8, com9, com10, com11,\
+  com12, com13, com14, com15, com16) \
+  do { uint8_t key = read_keypress(); \
+  switch (key){\
+    _cb(0, com1)  _cb(1, com2)  _cb(2, com3)  _cb(3, com4)\
+    _cb(4, com5)  _cb(5, com6)  _cb(6, com7)  _cb(7, com8)\
+    _cb(8, com9)  _cb(9, com10) _cb(10,com11) _cb(11,com12)\
+    _cb(12,com13) _cb(13,com14) _cb(14,com15) _cb(15,com16)}\
+  } while(0)
 #define clear_number_input() number_input[0] = 0;number_input[1] = 0;number_input[2] = 0; in_count = 0
 #define DELAY 500000
 
@@ -374,7 +383,7 @@ void main_menu(void){
     );
   }
 }
-
+/*
 int main(void){
   Full_Init();
   display_LCD("                                ",0);
@@ -385,7 +394,7 @@ int main(void){
   set_basic_data();
   display_colour(1);
   send_data_UART(BLOCKING);
-  //*/
+  //
   /* //DEBUG LCD and keypad
   LCD_clear();
   while(1){
@@ -393,7 +402,8 @@ int main(void){
     display_colour(0);
     printKeyToLCD(decode_keypad(read_buff[0]),LCDcount);
   }
-  //*/
+  //
 
   while(1) main_menu();
 }
+*/
