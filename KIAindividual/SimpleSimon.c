@@ -111,7 +111,6 @@ void game_loop(){
   //1000000 == second
   //1000 == milisecond
 
-  GPIO_SetDir(1, ALL_LEDS, 1);
 
   uint8_t sent[64][3];
   int sent_int[64];
@@ -120,14 +119,11 @@ void game_loop(){
   char colour_choice = 0;
   int colour_choice_int = 0;
   int choice = 0;
-  int rec_counter = 0;
   int win_flag = 1;     //0 for nonsuccessful state, 1 for successful state; will only change if false
-  int rec_flag = 1;     //Used for checking when to stop receiving; Initially 1, turned off when the loop has filled all available receieve slots
   int choice_flag = 1;  //Used to wait for valid input from the user. When 0, a valid choice has been made
   int i = 0;
   int k = 0;
   int counter = 0;
-  char to_print[64];
 
   sent[0][0] = 0;
   sent[0][1] = 0;
@@ -226,21 +222,11 @@ void game_loop(){
     display_LCD("INPUT THE SEQ...", 0);
     display_LCD("                ", 16);
 
-    //////////////////////////////////////////////////////
-    while(rec_flag == 1){
-
+    int x = 0;
+    for (x = 0; x < counter; x++){
       choice_flag = 1;
-
-      //Wait until a valid key is entered; prevents illegal input
-      //TESTED
-
-      ////////////////////////////////////////////////
       while(choice_flag == 1){
-        sprintf(to_print, "CHOICE_FLAG %d\r\n", choice_flag);
-        print(to_print);
         colour_choice = EL_KEYPAD_ReadKey();
-        sprintf(to_print, "KEYPAD %c\r\n", colour_choice);
-        print(to_print);
 
         switch(colour_choice){
           case '1':
@@ -269,25 +255,9 @@ void game_loop(){
         }
       }
 
-      ///////////////////////////////////////////////
-      sprintf(to_print, "OUT OF LOOP\r\n");
-      print(to_print);
-
-      //append valid input to the receive array
-      sprintf(to_print, "receive : %d\r\n", receive[rec_counter]);
-      print(to_print);
-      receive[rec_counter] = colour_choice_int;
-      sprintf(to_print, "receive : %d\r\n", receive[rec_counter]);
-      print(to_print);
-      //loop until we have the required number of received variables
-      if(rec_counter == counter){
-        rec_flag = 0;
-      }
-      rec_counter++;
+      receive[x] = colour_choice_int;
     }
 
-
-      //////////////////////////////////////////////////
 
     for(i = 0; i < counter; i ++){
       if(sent_int[i] == receive[i]){
@@ -302,17 +272,7 @@ void game_loop(){
     if(win_flag == 0){
       break;
     }
-    for(i = 0; i < 4; i++){
-      GPIO_SetValue(1, leds[4]);
-      Delay(SECOND);
-      GPIO_ClearValue(1, leds[4]);
-    }
-
-
-
-
   }
-/////////////////////////////////////////////////////////////////////////////
 
   cont = '\0';
   while (cont != 'A'){
@@ -347,14 +307,7 @@ void game_loop(){
     display_LCD("     PLAYING    ", 16);
     break;
   }
-
-
-  ///////////////////////END OF GAME LOOP FUNCTION//////////////////////////////
 }
-
-
-
-
 
 
 int main(){
@@ -362,13 +315,6 @@ int main(){
   EL_SERIAL_Init();
   GPIO_SetDir(0, SPEAKER, 1);
   game_loop();
-
-  /*
-  GPIO_SetDir(0, SPEAKER, 1);
-  speaker_GPIO(1);  //red       highest
-  speaker_GPIO(2);  //blue
-  speaker_GPIO(3);  //green
-  speaker_GPIO(4);  //RG        lowest  */
 
   return 0;
 }
