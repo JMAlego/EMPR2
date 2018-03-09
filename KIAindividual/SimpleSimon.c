@@ -16,24 +16,16 @@
 #include <string.h>
 #include <math.h>
 
-#define ALL_LEDS 0xB40000
-#define LED1 0x040000
-#define LED2 0x100000
-#define LED3 0x200000
-#define LED4 0x800000
-
+//Predefine constants etc
 #define LCD_ADDRESS 0x3B
 #define EIGHT_SEG_ADDRESS 0x38
 #define KEYPAD_ADDRESS 0x21
 #define SPEAKER 0x80 //PIN7
 
-//END OF PREDEFINED ---
-
 const int SECOND = 1000000;
 const int MILISECOND = 1000;
 const int MICROSECOND = 1;
 
-const int leds[4] = {LED1, LED2, LED3, LED4};
 const int colours[4] = {1, 2, 3, 4};
 
 //Function declarations
@@ -46,22 +38,17 @@ void setLedsWithChar(char led_vals);
 void speaker_GPIO(int colour);
 void game_loop();
 void LCD_clear();
+
 //Function definitions
 
-void setLedsWithChar(char led_vals){
-  GPIO_ClearValue(1, ALL_LEDS);
-  led_vals = led_vals & 0xf;
-  if(led_vals & 0x1) GPIO_SetValue(1, LED1);
-  if(led_vals & 0x2) GPIO_SetValue(1, LED2);
-  if(led_vals & 0x4) GPIO_SetValue(1, LED3);
-  if(led_vals & 0x8) GPIO_SetValue(1, LED4);
-}
-
 void speaker_GPIO(int colour){
-  int i;
+  //Function to emit a tone for a specified colour
+  //4 is lowest in pitch, 1 is highest
+  int i = 0;
 
   switch(colour){
     case 1:
+    //Red
     for(i = 0; i < 600; i++){
       GPIO_SetValue(0, SPEAKER);
       Delay(MILISECOND*1);
@@ -71,6 +58,7 @@ void speaker_GPIO(int colour){
     break;
 
     case 2:
+    //Blue
     for(i = 0; i < 300; i++){
       GPIO_SetValue(0, SPEAKER);
       Delay(MILISECOND*2);
@@ -80,6 +68,7 @@ void speaker_GPIO(int colour){
     break;
 
     case 3:
+    //Green
     for(i = 0; i < 200; i++){
       GPIO_SetValue(0, SPEAKER);
       Delay(MILISECOND*3);
@@ -89,6 +78,7 @@ void speaker_GPIO(int colour){
     break;
 
     case 4:
+    //Red and Green
     for(i = 0; i < 150; i++){
       GPIO_SetValue(0, SPEAKER);
       Delay(MILISECOND*4);
@@ -100,32 +90,37 @@ void speaker_GPIO(int colour){
 }
 
 void game_loop(){
+  //Main game loop
 
+  //Turn off colour code for the light
   uint8_t zeroes[1][3] = {{0, 0, 0}};
   send_colours(zeroes, 1, 0);
 
+  //Will make rand() more random
   int seed = time(NULL);
   srand(seed);
 
+  //Config the system clock correctly
   SysTick_Config(SystemCoreClock/SECOND - 6);
   //1000000 == second
   //1000 == milisecond
 
 
-  uint8_t sent[64][3];
-  int sent_int[64];
-  int receive[64];
-  char cont = '\0';
-  char colour_choice = 0;
-  int colour_choice_int = 0;
-  int choice = 0;
+  //Variable declarations
+  uint8_t sent[64][3];  //To contain the sequence of sent colours in RGB form
+  int sent_int[64];     //To contain the sequence of sent colours in int form
+  int receive[64];      //To store the received colour sequence from the user in int form
+  char cont = '\0';     //To store the keypad press
+  char colour_choice = 0;   //To store the colour chosen by the user from the keypad
+  int colour_choice_int = 0;    //To convert the char colour_choice to an int
+  int choice = 0;       //To store the random colour that is to be sent
   int win_flag = 1;     //0 for nonsuccessful state, 1 for successful state; will only change if false
   int choice_flag = 1;  //Used to wait for valid input from the user. When 0, a valid choice has been made
-  int i = 0;
-  int k = 0;
-  int counter = 0;
+  int i = 0;            //Loop counter
+  int k = 0;            //Loop counter
+  int counter = 0;      //Turn counter for use with segment display as extra feature
 
-  sent[0][0] = 0;
+  sent[0][0] = 0;       //Initial set up of sent to prevent error
   sent[0][1] = 0;
   sent[0][2] = 0;
 
@@ -168,43 +163,44 @@ void game_loop(){
   }
 
   //GAME LOOP CONTAINED BELOW
-  /////////////////////////////////////////////////////////////////////////////
   while(win_flag == 1){
     counter++;
+    //Display current turn on 8Seg
     SEGMENT_Write(counter, 0);
 
+    //Holds till the sequence has sent
     display_LCD("WATCH THE SEQ...", 0);
     display_LCD("                ", 16);
 
-
-    //TESTED
+    //Generates a random number between 1 and 4, inclusive
     choice = (rand() % 4)+1;
     sent_int[counter-1] = choice;
-    //sprintf(to_print, "%d", sent_int[counter-1]);
-    //print(to_print);
 
     //Convert choice to DMX function standard
-
     switch(choice){
       case 1:
+      //Red
       sent[counter-1][0] = 255;
       sent[counter-1][1] = 0;
       sent[counter-1][2] = 0;
       break;
 
       case 2:
+      //Blue
       sent[counter-1][0] = 0;
       sent[counter-1][1] = 0;
       sent[counter-1][2] = 255;
       break;
 
       case 3:
+      //Green
       sent[counter-1][0] = 0;
       sent[counter-1][1] = 255;
       sent[counter-1][2] = 0;
       break;
 
       case 4:
+      //Red and Green
       sent[counter-1][0] = 255;
       sent[counter-1][1] = 255;
       sent[counter-1][2] = 0;
@@ -212,58 +208,72 @@ void game_loop(){
     }
 
     for(k = 0; k < counter; k++){
-      //sprintf(to_print, "%d %d %d", sent[k][0], sent[k][1], sent[k][2]);
-      //print(to_print);
+      //Loop through the sequence with counter # of colours
       send_colours(sent[k], 1, 0);
+      //Play a tone at the same time
       speaker_GPIO(sent_int[k]);
       Delay(3*SECOND);
     }
+    //Clear the light before the next sequence
     send_colours(zeroes, 1, 0);
+    //Holds until they have finished inputting
     display_LCD("INPUT THE SEQ...", 0);
     display_LCD("                ", 16);
 
     int x = 0;
     for (x = 0; x < counter; x++){
+      //Loops through until they have input the correct # of colours
       choice_flag = 1;
+
       while(choice_flag == 1){
         colour_choice = EL_KEYPAD_ReadKey();
 
         switch(colour_choice){
+          //Switches keypad char input to int
+          //User is prevented from entering illegal input
           case '1':
+          //Red
           choice_flag = 0;
           colour_choice_int = 1;
           break;
 
           case '2':
+          //Blue
           choice_flag = 0;
           colour_choice_int = 2;
           break;
 
           case '3':
+          //Green
           choice_flag = 0;
           colour_choice_int = 3;
           break;
 
           case '4':
+          //Red and Green
           choice_flag = 0;
           colour_choice_int = 4;
           break;
 
           default:
+          //Illegal input
           choice_flag = 1;
 
         }
       }
-
+      //Append the selected colour to the receive array to check later
       receive[x] = colour_choice_int;
     }
 
 
     for(i = 0; i < counter; i ++){
+      //Loop through, comparing sent colours to received answers
       if(sent_int[i] == receive[i]){
+        //If correct, continue
         win_flag = 1;
         continue;
       } else {
+        //If wrong, break out of the win loop
         win_flag = 0;
         break;
       }
@@ -272,8 +282,10 @@ void game_loop(){
     if(win_flag == 0){
       break;
     }
+    //Win activity here?
   }
 
+  //Holds till A pressed
   cont = '\0';
   while (cont != 'A'){
     display_LCD("You got to      ", 0);
@@ -283,6 +295,7 @@ void game_loop(){
     cont = EL_KEYPAD_ReadKey();
   }
 
+  //Holds till A pressed
   cont = '\0';
   while (cont != 'A'){
     display_LCD(" DO YOU WANT TO ", 0);
@@ -290,6 +303,7 @@ void game_loop(){
     cont = EL_KEYPAD_ReadKey();
   }
 
+  //Holds till 1 or 2 pressed
   cont = '\0';
   while (cont != '1' && cont != '2'){
     display_LCD("     1 = YES    ", 0);
@@ -298,10 +312,13 @@ void game_loop(){
   }
 
   switch(cont){
+    //Choose to play again or "quit"
     case('1'):
     game_loop();
     break;
+
     case('2'):
+    //Reset segment display, and display end screen
     SEGMENT_Write(0, 0);
     display_LCD("   THANKS FOR   ", 0);
     display_LCD("     PLAYING    ", 16);
@@ -311,10 +328,13 @@ void game_loop(){
 
 
 int main(){
+  //Init from generator functions
   Full_Init();
+  //Serial init for printing
   EL_SERIAL_Init();
+  //Set up speaker pin
   GPIO_SetDir(0, SPEAKER, 1);
+  //Enter the game
   game_loop();
-
   return 0;
 }

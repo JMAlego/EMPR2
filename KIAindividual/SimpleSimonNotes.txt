@@ -127,3 +127,80 @@ b
 r
 rg
 b
+
+
+
+rec_counter = 1;    //Counter starts at 1
+choice_flag = 1;
+rec_flag = 1;
+
+
+
+
+
+
+
+
+//////////////////////////////////////////////////////
+while(rec_flag == 1){
+  sprintf(to_print, "COUNTER: %d\r\n", counter);
+  print(to_print);
+  sprintf(to_print, "REC COUNTER: %d\r\n", rec_counter);
+  print(to_print);
+
+  sprintf(to_print, "IN RECEIVE LOOP!");
+  print(to_print);
+
+
+
+  //Wait until a valid key is entered; prevents illegal input
+
+  ////////////////////////////////////////////////
+  while(choice_flag == 1){
+    sprintf(to_print, "IN CHOICE LOOP!");
+    print(to_print);
+    colour_choice = EL_KEYPAD_ReadKey();
+    sprintf(to_print, "KEYPAD %c\r\n", colour_choice);
+    print(to_print);
+
+    switch(colour_choice){
+      case '1':
+      choice_flag = 0;
+      colour_choice_int = 1;
+      break;
+
+      case '2':
+      choice_flag = 0;
+      colour_choice_int = 2;
+      break;
+
+      case '3':
+      choice_flag = 0;
+      colour_choice_int = 3;
+      break;
+
+      case '4':
+      choice_flag = 0;
+      colour_choice_int = 4;
+      break;
+
+      default:
+      choice_flag = 1;
+
+    }
+  }
+
+  ///////////////////////////////////////////////
+  sprintf(to_print, "OUT OF CHOICE LOOP\r\n");
+  print(to_print);
+
+  //append valid input to the receive array
+  receive[rec_counter] = colour_choice_int;
+  //loop until we have the required number of received variables
+  if(rec_counter == counter){
+    rec_flag = 0;
+  }
+  rec_counter++;
+}
+sprintf(to_print, "OUT OF RECEIVE LOOP!");
+print(to_print);
