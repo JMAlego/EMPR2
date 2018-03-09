@@ -6,6 +6,7 @@ from gi.repository import Gtk, GObject, Pango
 from multiprocessing import Process, Value, Array
 from ui_channel_display import UIChannelDisplay
 from help_window import UIHelp
+import sys
 
 class DisplayUI(Gtk.Window):
 
@@ -13,7 +14,7 @@ class DisplayUI(Gtk.Window):
         self.packet_count_value = Value("i", 0)
         self.ui_running = Value("b", 1)
         self.reset_count = Value("b", 0)
-        self.packet_last_value = Array("B", list(range(512)))
+        self.packet_last_value = Array("B", list([0]*512))
         self.packet_snapshot = self.packet_last_value[:]
         self.mode = "SINGLE_CAPTURE"
         Gtk.Window.__init__(self, title="EMPR PC Display")
@@ -21,6 +22,7 @@ class DisplayUI(Gtk.Window):
         self.set_border_width(10)
         self.channel_windows = {}
         self.packet_display_count = 0
+        self.previous_packet_count_value = 0
 
         hbox = Gtk.Box(spacing=10)
         hbox.set_homogeneous(False)
@@ -143,7 +145,9 @@ class DisplayUI(Gtk.Window):
                 index += 1
             for cid, child in self.channel_windows.items():
                 child.update_values()
-            self.packet_display_count += 1
+            if self.previous_packet_count_value != self.packet_count_value.value:
+                self.packet_display_count += 1
+                self.previous_packet_count_value = self.packet_count_value.value
             self.mode = "WAITING"
         if self.mode == "MULTI_CAPTURE":
             self.packet_snapshot = self.packet_last_value[:]
@@ -153,7 +157,9 @@ class DisplayUI(Gtk.Window):
                 index += 1
             for cid, child in self.channel_windows.items():
                 child.update_values()
-            self.packet_display_count += 1
+            if self.previous_packet_count_value != self.packet_count_value.value:
+                self.packet_display_count += 1
+                self.previous_packet_count_value = self.packet_count_value.value
         return True
 
     def btn_reset_count(self, event):

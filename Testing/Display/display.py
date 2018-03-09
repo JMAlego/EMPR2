@@ -35,11 +35,12 @@ class Display(object):
                 self.ui.reset_count.value = 0
             if not self.running:
                 return
-            if(self.monitor.buffer_semaphore.acquire(timeout=1)):
-                packet = self.monitor.packets.pop()
-                self.packet_count += 1
-                self.ui.packet_count_value.value = self.packet_count
-                self.ui.packet_last_value = Array("B", packet)
+            if(self.monitor.buffer_semaphore.acquire(True, 2.0)):
+                if self.monitor.packets:
+                    packet = self.monitor.packets.pop()
+                    self.packet_count += 1
+                    self.ui.packet_count_value.value = self.packet_count
+                    self.ui.packet_last_value = Array("B", packet)
 
 if __name__ == "__main__":
     disp = Display()
