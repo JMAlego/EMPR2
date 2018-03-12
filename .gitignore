@@ -59,5 +59,9 @@ dkms.conf
 
 __pycache__/
 
+.vscode
+
+.Rhistory
+
 !Monitor/bin/.gitkeep
 !Generator/bin/.gitkeep
