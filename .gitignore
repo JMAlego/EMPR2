@@ -53,7 +53,11 @@ dkms.conf
 
 
 */bin/*
+!.gitkeep
 !*.git*
-
+!.git*
 
 __pycache__/
+
+!Monitor/bin/.gitkeep
+!Generator/bin/.gitkeep

@@ -222,7 +222,7 @@ void sweep_display(char * startup_message){
       EL_LCD_WriteAddress(pointer1);
       EL_LCD_WriteChar(0b00010011);
     }
-    Delay(MILISECOND*100);
+    Delay(MILISECOND*50);
   }
 }
 
@@ -231,7 +231,9 @@ void startup(){
   sweep_display(startup_message);
   strcpy(startup_message, "By Jacob, Kia,  Max, Calum");
   sweep_display(startup_message);
-  Delay(SECOND);
+  strcpy(startup_message, "");
+  sweep_display(startup_message);
+  Delay(MILISECOND*10);
 }
 
 int main(){

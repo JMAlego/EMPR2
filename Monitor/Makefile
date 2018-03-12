@@ -46,10 +46,10 @@ LDFLAGS=$(CMSISFL) -static -mcpu=cortex-m3 -mthumb -mthumb-interwork \
 LDFLAGS+=-L$(CMSIS)/lib -lDriversLPC17xxgnu
 
 # Name of the binary being built
-EXECNAME	= bin/GPIOReadTest
+EXECNAME	= bin/Monitor
 
 # Source files provided by the user to build the project
-OBJ		= GPIOReadTest.o
+OBJ		= Monitor.o
 
 # Commands handled by this makefile
 all: 	build
