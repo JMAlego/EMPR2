@@ -71,6 +71,7 @@ typedef enum MONITOR_STATE{
 
 //Function to get a frame/packet
 int getFrame(uint8_t * out_type, uint8_t out_slots[]){
+  //Initialise variables
   int input_state;
   unsigned long start_time;
   uint8_t slots[513];
@@ -83,7 +84,8 @@ int getFrame(uint8_t * out_type, uint8_t out_slots[]){
   int slot_count = 0;
   unsigned long slot_start_time = 0;
   int errors = 0;
-  while(1){
+  while(1){//Start main state machine loop
+    //Reset variables
     slot = 0;
     break_bit = 0;
     end_bits = 0;
@@ -92,7 +94,7 @@ int getFrame(uint8_t * out_type, uint8_t out_slots[]){
     slot_count = 0;
     slot_start_time = 0;
     state = IDLE;
-    //IDLE STATE
+    //IDLE STATE - Wait for DMX data to start
     start_time = SysTickCnt;
     while(state == IDLE){
       input_state = READ();
@@ -103,7 +105,7 @@ int getFrame(uint8_t * out_type, uint8_t out_slots[]){
           start_time = SysTickCnt;
       }
     }
-    //BREAK STATE
+    //BREAK STATE - Got idle, now we need to check for the break
     state = BREAK;
     start_time = SysTickCnt;
     while(state == BREAK){
@@ -112,7 +114,7 @@ int getFrame(uint8_t * out_type, uint8_t out_slots[]){
         if(SysTickCnt - start_time > MILISECOND)
           break;
         else if(SysTickCnt - start_time > SECOND){
-          //AAHAHAHAHAHAHH PANIC!
+          //Something has gone really wrong PANIC!
           state = IDLE;
         }else{
           start_time = SysTickCnt;
@@ -120,19 +122,21 @@ int getFrame(uint8_t * out_type, uint8_t out_slots[]){
         }
       }
     }
-    if(state == IDLE)
+    if(state == IDLE) //Didn't get a break, so go to start
       continue;
     //SLOT STATE
     state = SLOT;
     start_time = SysTickCnt;
-    while(state == INITIAL_SLOT || state == SLOT){
+    while(state == INITIAL_SLOT || state == SLOT){ //Read slots
+      //Whille we've got more slots to read
       while(slot_count < 513){
+        //Set slot variables
         slot = 0;
         bit_index = 0;
         end_bits = 0;
-        while(READ() == 1);
+        while(READ() == 1);//Wait for a low
         slot_start_time = SysTickCnt;
-        while(bit_index < 11){
+        while(bit_index < 11){//Read the 11 bits of the slot
           bit_start_time = SysTickCnt;
           if(bit_index == 0){
               break_bit = READ();
@@ -142,24 +146,28 @@ int getFrame(uint8_t * out_type, uint8_t out_slots[]){
             slot |= READ() << (bit_index - 1);
           }
           bit_index++;
-          if(bit_index < 11){
+          if(bit_index < 11){//Wait for end of bit
             while(SysTickCnt - bit_start_time < MICROSECOND*4);
           }
         }
-        if(break_bit != 0 || end_bits != 2){
+        if(break_bit != 0 || end_bits != 2){//If there's an error, count it
           errors++;
         }
+        //Increment slot
         slots[slot_count] = slot;
         slot_count++;
+        //wait for end of slot
         while(SysTickCnt - slot_start_time < MICROSECOND*4*11 - 1*MICROSECOND);
       }
+      //If we've got all the data, exit reading state
       if(slot_count == 513) state = END_FRAME;
     }
-    if(state == END_FRAME)
+    if(state == END_FRAME)//Exit loop on successful read
       break;
-    if(state == IDLE)
+    if(state == IDLE)//Else return to start of state machine
       continue;
   }
+  //Copy data to output
   int i = 1;
   while(i < 513){
     out_slots[i-1] = slots[i];
@@ -226,6 +234,9 @@ void sweep_display(char * startup_message){
   }
 }
 
+/*
+  Function to display startup message
+*/
 void startup(){
   char startup_message[33] = "EMPR Monitor    Group 4";
   sweep_display(startup_message);
@@ -237,17 +248,23 @@ void startup(){
 }
 
 int main(){
+  //Configure timer
   SysTick_Config(SystemCoreClock/SECOND - 6);
   //1000000 == second
   //1000 == milisecond
+  //Initialise I2C, Serial, and LCD
   EL_I2C_Init();
   EL_SERIAL_Init();
   EL_LCD_Init();
   EL_LCD_ClearDisplay();
+  //Setup GPIO
   GPIO_SetDir(0, SENDING, 1);
   GPIO_SetDir(0, RECEIVING, 0);
+  //Display startup message
   startup();
+  //Send start on UART
   print("START\r\n");
+  //Setup variables
   uint8_t slots[512];
   uint8_t trigger_compare[512];
   uint8_t type_slot;
@@ -259,8 +276,10 @@ int main(){
   char menu_key;
   int channel_size = 0;
   int channel_address = 0;
+  //Main menu state machine loop
   while(1){
-    while(current_menu_state == MENU_TOP){
+    while(current_menu_state == MENU_TOP){ //Top level menu
+      //Display menu
       strcpy(lcd_string, "MENU:  2=MANUAL ");
       EL_LCD_ClearDisplay();
       EL_LCD_EncodeASCIIString(lcd_string);
@@ -269,9 +288,10 @@ int main(){
       EL_LCD_EncodeASCIIString(lcd_string);
       EL_LCD_WriteAddress(0x40);
       EL_LCD_WriteChars(lcd_string, 16);
+      //Wait for input
       menu_key = EL_KEYPAD_ReadKey();
-      switch (menu_key){
-        case '2':
+      switch (menu_key){//Do menu actions
+        case '2': //Single Capture
           strcpy(lcd_string, "CAPTURING");
           EL_LCD_ClearDisplay();
           EL_LCD_EncodeASCIIString(lcd_string);
@@ -281,10 +301,10 @@ int main(){
           slot_offset = 0;
           print("READ\r\n");
           break;
-        case '8':
+        case '8': //Trigger Mode
           current_menu_state = TRIGGER_INPUT_1;
           break;
-        case '5':
+        case '5': //PC Display Mode
           current_menu_state = DISPLAY_MODE;
           strcpy(lcd_string, "DISPLAY MODE    ");
           EL_LCD_WriteAddress(0x00);
@@ -297,9 +317,10 @@ int main(){
           break;
       }
     }
+    //Packet captured state
     while(current_menu_state == CAPTURED_PACKET){
       print("STATE = CAPTURED_PACKET\r\n");
-      if (slot_offset == -1){
+      if (slot_offset == -1){// Display data type
         EL_LCD_WriteAddress(0x00);
         sprintf(lcd_string, "Type Slot: 0x%02x ", type_slot);
         EL_LCD_EncodeASCIIString(lcd_string);
@@ -308,7 +329,7 @@ int main(){
         type_lookup(lcd_string, type_slot);
         EL_LCD_EncodeASCIIString(lcd_string);
         EL_LCD_WriteChars(lcd_string, 16);
-      }else{
+      }else{// Display normal slots
         EL_LCD_WriteAddress(0x00);
         sprintf(lcd_string, "0x%02x:0x%02x    %03d", slots[slot_offset*4], slots[slot_offset*4+1], slot_offset*4 + 1);
         EL_LCD_EncodeASCIIString(lcd_string);
@@ -318,8 +339,9 @@ int main(){
         EL_LCD_EncodeASCIIString(lcd_string);
         EL_LCD_WriteChars(lcd_string, 16);
       }
+      //Get input
       menu_key = EL_KEYPAD_ReadKey();
-      switch (menu_key) {
+      switch (menu_key) {//Do menu action
         case '#': //Next
           slot_offset++;
           if(slot_offset == 128){
