@@ -25,6 +25,7 @@
 const int SECOND = 1000000;
 const int MILISECOND = 1000;
 const int MICROSECOND = 1;
+const int TURN_COUNT = 64;
 
 const int colours[4] = {1, 2, 3, 4};
 
@@ -89,6 +90,36 @@ void speaker_GPIO(int colour){
   }
 }
 
+void play_note(long duration, float freq){
+  int i;
+  long ontime = (long)(((float) SECOND)/freq);
+  for(i = 0; i < (duration/ontime); i++){
+    GPIO_SetValue(0, SPEAKER);
+    Delay(ontime/2);
+    GPIO_ClearValue(0, SPEAKER);
+    Delay(ontime/2);
+  }
+}
+
+void win_sound(){
+  int chest_opening[4][2] = {{440,300},{466,300},{494,300},{524,600}};
+  int i = 0;
+  while(i<4){
+    play_note(MILISECOND * chest_opening[i][1], chest_opening[i][0]);
+    i++;
+  }
+}
+
+void lose_sound(){
+  //E Eb D Db - WAH WAH WAHHHHH
+  int fail[4][2] = {{330,500},{310,500},{290,500},{280,800}};
+  int i = 0;
+  while(i<4){
+    play_note(MILISECOND * fail[i][1], fail[i][0]);
+    i++;
+  }
+}
+
 void game_loop(){
   //Main game loop
 
@@ -107,9 +138,9 @@ void game_loop(){
 
 
   //Variable declarations
-  uint8_t sent[64][3];  //To contain the sequence of sent colours in RGB form
-  int sent_int[64];     //To contain the sequence of sent colours in int form
-  int receive[64];      //To store the received colour sequence from the user in int form
+  uint8_t sent[TURN_COUNT][3];  //To contain the sequence of sent colours in RGB form
+  int sent_int[TURN_COUNT];     //To contain the sequence of sent colours in int form
+  int receive[TURN_COUNT];      //To store the received colour sequence from the user in int form
   char cont = '\0';     //To store the keypad press
   char colour_choice = 0;   //To store the colour chosen by the user from the keypad
   int colour_choice_int = 0;    //To convert the char colour_choice to an int
@@ -165,6 +196,8 @@ void game_loop(){
   //GAME LOOP CONTAINED BELOW
   while(win_flag == 1){
     counter++;
+
+
     //Display current turn on 8Seg
     SEGMENT_Write(counter, 0);
 
@@ -280,9 +313,19 @@ void game_loop(){
     }
 
     if(win_flag == 0){
+      lose_sound();
       break;
     }
-    //Win activity here?
+
+    //Protects against reaching max buffer size
+    if (counter == TURN_COUNT){
+      win_sound();
+      break;
+    }
+
+    //Before the next round, play a win sound (Opening chest noise from Zelda)
+    win_sound();
+    Delay(2*SECOND);
   }
 
   //Holds till A pressed
