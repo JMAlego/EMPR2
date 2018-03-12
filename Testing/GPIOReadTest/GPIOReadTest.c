@@ -198,6 +198,42 @@ void type_lookup(char * string, uint8_t type_slot){
   }
 }
 
+void sweep_display(char * startup_message){
+  uint8_t startup_message_length = strlen(startup_message);
+  EL_LCD_EncodeASCIIString(startup_message);
+  unsigned int i;
+  uint8_t offset = 5;
+  uint8_t pointer1 = 0;
+  uint8_t pointer2 = 0;
+  for(i = 0; i < 32 + offset; i++){
+    if(i < 16)
+      pointer1 = i;
+    else
+      pointer1 = 48 + i;
+    if(i - offset < 16)
+      pointer2 = i - offset;
+    else
+      pointer2 = 48 + i - offset;
+    if (i >= offset){
+      EL_LCD_WriteAddress(pointer2);
+      EL_LCD_WriteChar(i - offset < startup_message_length ? startup_message[i-offset] : 0b10100000);
+    }
+    if (i < 32){
+      EL_LCD_WriteAddress(pointer1);
+      EL_LCD_WriteChar(0b00010011);
+    }
+    Delay(MILISECOND*100);
+  }
+}
+
+void startup(){
+  char startup_message[33] = "EMPR Monitor    Group 4";
+  sweep_display(startup_message);
+  strcpy(startup_message, "By Jacob, Kia,  Max, Calum");
+  sweep_display(startup_message);
+  Delay(SECOND);
+}
+
 int main(){
   SysTick_Config(SystemCoreClock/SECOND - 6);
   //1000000 == second
@@ -208,6 +244,7 @@ int main(){
   EL_LCD_ClearDisplay();
   GPIO_SetDir(0, SENDING, 1);
   GPIO_SetDir(0, RECEIVING, 0);
+  startup();
   print("START\r\n");
   uint8_t slots[512];
   uint8_t trigger_compare[512];
