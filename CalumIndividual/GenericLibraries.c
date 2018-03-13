@@ -25,6 +25,24 @@
     _cb(12,com13) _cb(13,com14) _cb(14,com15) _cb(15,com16)}\
   } while(0)
 
+#define _cb(no,com) case no: {com;break;}
+
+uint8_t input_translate(uint8_t number_input[3], uint8_t in_count){
+  uint16_t output = 0;
+  if(in_count == 0){
+    output = 0;
+  } else if (in_count == 1){
+    output = number_input[0];
+  } else if (in_count == 2){
+    output = (number_input[0] * 10) + number_input[1];
+  } else if (in_count == 3){
+    output = (number_input[0] * 100) + (number_input[1] * 10) + number_input[2];
+  }
+  if (output > 255) output = 255;
+
+  return (uint8_t) output;
+}
+
 #define SENDING 0x40040
 #define RECEIVING 0x20000
 #define STOP 0x000000
