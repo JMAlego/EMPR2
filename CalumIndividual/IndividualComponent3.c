@@ -3,6 +3,8 @@
 
 uint8_t intensity_at_interval[100];
 uint8_t sequence_of_colours[20][3];
+uint8_t piezo_hue;
+uint8_t piezo_intensity;
 
 void IC3_menu(void);
 
@@ -141,7 +143,7 @@ void Save_Pattern_Using_IR(void){
 	}
 }
 
-uint8_t Get_Intensity_From_Piezo(void){
+void Get_Intensity_From_Piezo(void){
 	uint8_t seg_val = 0;
 	char out[16];
 	display_LCD("Select intensity",0);
@@ -168,10 +170,10 @@ uint8_t Get_Intensity_From_Piezo(void){
 			break;
 		}
 	}
-	return seg_val;
+	piezo_intensity = seg_val;
 }
 
-uint8_t Get_Hue_From_Piezo(void){
+void Get_Hue_From_Piezo(void){
 	char out[16];
 	uint8_t seg_val = 0;
 	char* col;
@@ -198,17 +200,19 @@ uint8_t Get_Hue_From_Piezo(void){
 		if (ADC_ChannelGetData(LPC_ADC, 2) == 0){
 			break;
 		}
+		Delay(100000);
 	}
-	if (seg_val == 0){
+	if (seg_val == 1){
 		col = "Red";
-	} else if (seg_val == 1){
+	} else if (seg_val == 2){
 		col = "Green";
-	} else {
+	} else if (seg_val == 3){
 		col = "Blue";
 	}
 	display_LCD("Hue =                           ",0);
 	display_LCD(col, 6);
-	return (seg_val-1);
+	Delay(1000000);
+	piezo_hue = (seg_val - 1);
 }
 
 uint8_t Get_Intensity_From_IR(void){
@@ -282,9 +286,9 @@ void Set_Colour_Via_IR(void){
 }
 
 void Set_Colour_Via_Piezo(void){
-	uint8_t hue = Get_Hue_From_Piezo();
-	uint8_t intensity = Get_Intensity_From_Piezo();
-	data[hue] = intensity;
+	Get_Hue_From_Piezo();
+	Get_Intensity_From_Piezo();
+	data[piezo_hue] = piezo_intensity;
 	send_data_UART(1);
 }
 
@@ -336,9 +340,11 @@ void Define_Sequence(uint8_t Piezo_OR_IR){ // 0 or 1 resp.
 			return;
 		}
 		if (Piezo_OR_IR == 0){
-			hue = Get_Hue_From_Piezo();
+			Get_Hue_From_Piezo();
+			hue = piezo_hue;
 			SEGMENT_WriteHidden(0,5,1);
-			intensity = Get_Intensity_From_Piezo();
+			Get_Intensity_From_Piezo();
+			intensity = piezo_intensity;
 			SEGMENT_WriteHidden(0,5,1);
 		} else {
 			hue = Get_Hue_From_IR();
