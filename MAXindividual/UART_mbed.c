@@ -28,9 +28,9 @@ struct Sequence {
 struct Sequence sequence[16];
 
 
-void clear_array(uint8_t array[INPUTSIZE]){
+void clear_array(uint8_t array[], uint8_t length){
   int i;
-  for (i = 0; i < INPUTSIZE; i++){
+  for (i = 0; i < length; i++){
     array[i] = 0;
   }
 }
@@ -71,16 +71,16 @@ uint8_t get_cmd_input(uint8_t input[INPUTSIZE], uint8_t params){
   return (input_count == params);
 }
 
-void load_and_play_seq(uint8_t seq[], uint8_t start, uint8_t length, uint64_t delay){
-  sprintf(output, "Display sequence with length %d from %d\n\r", length, start);
-  EL_SERIAL_Print(output);
+void load_and_play_seq(uint8_t seq[], uint8_t length, uint64_t delay){
+  //sprintf(output, "Display sequence with length %d from %d\n\r", length);
+  //EL_SERIAL_Print(output);
   if (!length){
     return;
   }
 
   uint8_t i;
-  for (i = start; i < length; i++){
-    sprintf(output, "R: %d, G: %d, B: %d", colour[seq[i]][0], colour[seq[i]][1], colour[seq[i]][2]);
+  for (i = 0; i < length; i++){
+    sprintf(output, "Colour: %d", seq[i]);
     EL_SERIAL_Print(output);
     data[0] = colour[seq[i]][0];
     data[1] = colour[seq[i]][1];
@@ -90,6 +90,7 @@ void load_and_play_seq(uint8_t seq[], uint8_t start, uint8_t length, uint64_t de
 
     Delay(delay);
   }
+
 }
 
 /*
@@ -123,7 +124,7 @@ int16_t read_num_chars(uint8_t input[INPUTSIZE], uint8_t* i){
     ++(*i);
   }
 }
-//read_seq_val can be used to read colour reference values, as the range is also 0-16.
+//read_seq_val can be used to read colour reference values, as the range is also 0-15.
 int8_t read_seq_val(uint8_t input[INPUTSIZE], uint8_t* i){
   uint16_t seq;
   while(1){
@@ -183,7 +184,7 @@ void setcol(uint8_t c, uint16_t r, uint16_t g, uint16_t b){
     send_data_UART(BLOCKING);
   } else {
     EL_SERIAL_Print("Invalid parameters.\
-    \n\r\tc in range 0-16,\
+    \n\r\tc in range 0-15,\
     \n\r\tr,g,b in range 0-255");
   }
 }
@@ -193,7 +194,7 @@ void setseq(uint8_t input[INPUTSIZE]){
   uint8_t i = 7;
   int8_t s = read_seq_val(input, &i);
   if (s == -1){
-    EL_SERIAL_Print("Please enter a valid sequence number: 0-16");
+    EL_SERIAL_Print("Please enter a valid sequence number: 0-15");
     return;
   }
 
@@ -215,15 +216,21 @@ void setseq(uint8_t input[INPUTSIZE]){
         break;
       default:
         if(is_numchar(input[i])){
-          sequence[s].colours[scount] = read_seq_val(input, &i);
+          int8_t seq = read_seq_val(input, &i);
+          if (seq != -1){
+            sequence[s].colours[scount] = seq;
+          } else {
+            EL_SERIAL_Print("Please enter valid sequence numbers: 0-15.");
+            return;
+          }
           //sprintf(output, "\n\rSequence %d colour number %d is now colour %d.",s, scount, sequence[s].colours[scount]);
           //EL_SERIAL_Print(output);
         } else if (input[i]==0){
-          sequence[s].length = scount;
+          sequence[s].length = ++scount;
           sprintf(output, "Sequence %d defined as: %d",s,sequence[s].colours[0]);
           EL_SERIAL_Print(output);
           uint8_t j;
-          for (j=0; j<scount; j++){
+          for (j=0; j<scount-1; j++){
             sprintf(output, "-%d", sequence[s].colours[j+1]);
             EL_SERIAL_Print(output);
           }
@@ -254,41 +261,232 @@ void setseq(uint8_t input[INPUTSIZE]){
   }*/
 }
 void playseq(uint8_t input[INPUTSIZE]){
-  uint8_t i = 7;
+  /*array of references:
+  * Sequence is 0x10-0x1F
+  * Sequences are always followed by start, then end.
+  * Repeat is 0x20-0x2F
+  * Transition is 0x30-0x3F
+  */
+  uint8_t to_play[64];
+  uint8_t count = 0; //to_play counter
 
-  uint8_t to_play[16]; //array of colour references
-  uint8_t to_play_length;
-  uint8_t to_play_next; //colour of the next sequence
 
-  //read through text, at every "end of transition", play what has been read.
-  while(1){
-    //read
-    switch (input[i]) {
-      case ' ':
-        EL_SERIAL_Print("Read space\n\r");
-        i++;
-        break;
-      /*case '(':
-        uint8_t i;
-        while(input[i] != ')'){
+  //read
+  {
+    //read through text and register colours to play.
+    uint8_t i = 7; // input counter
+    while(1){
+      switch (input[i]) {
+        case ' ':
+          //EL_SERIAL_Print("Read space\n\r");
+          i++;
+          break;
+        case ';':
+          i++;
+          break;
+          //EL_SERIAL_Print("Read semicolon\n\r");
+        case ':': //Expect 'n:'
+          //sprintf(output, "1i: %d\n\r",i); EL_SERIAL_Print(output);
+          if (is_numchar(input[i+1])){
+            //sprintf(output, "2i: %d\n\r",i); EL_SERIAL_Print(output);
+            int8_t transition = read_seq_val(input, &i);
+            //sprintf(output, "3i: %d\n\r",i); EL_SERIAL_Print(output);
+            //If syntax is correct
+            if ((transition != -1) && (input[i++]==':')){
+              to_play[count++] = 0x30 | transition;
+              //EL_SERIAL_Print("Successful!");
+            } else {
+              EL_SERIAL_Print("Transition function must follow the format :n: for 0 < n < 16\n\r");
+              return;
+            }
+          } else {
+            EL_SERIAL_Print("The transition function ':' should be followed by a number: .. :4: ..\n\r");
+            return;
+          }
+          break;
+        case '(':
+          if (is_numchar(input[i+1])){
+            // (n), (n,a) or (n,a,b)
+            int8_t seq = read_seq_val(input, &i);
+            if (seq != -1) {
+              if (input[i] == ',') {
+                // (n,a) or (n,a,b)
+                int8_t start = read_seq_val(input, &i);
+                if (start != -1) {
+                  if (input[i] == ',') {
+                    // (n,a,b)
+                    int8_t end = read_seq_val(input, &i);
+                    if (end != -1) {
 
-        }
-        if ()*/
-      default:
-        if (is_numchar(input[i])){
-          //EL_SERIAL_Print("Read number\n\r");
-          uint8_t seq = read_seq_val(input, &i);
-          //sprintf(output, "displaying sequence %d: ", colour[sequence[seq].colours[0]][0]);
-          //EL_SERIAL_Print(output);
-
-          load_and_play_seq(sequence[seq].colours, 0, sequence[seq].length, 300000);
-        } else {
-          //EL_SERIAL_Print("Read nothing.\n\r");
-          return;
-        }
+                      if ((end-start) > sequence[seq].length){
+                        EL_SERIAL_Print("Given end is longer than length of sequence!");
+                        return;
+                      } else if (end < start) {
+                        EL_SERIAL_Print("End of sequence cannot be before start.");
+                        return;
+                      } else {
+                        // (n,a,b)
+                        //sprintf(output, "Input: seq: %d, start: %d, end: %d. \n\rActual sequence lenght: %d", seq,start,end,sequence[seq].length); //DEBUG
+                        EL_SERIAL_Print(output);
+                        to_play[count++] = 0x10 | seq;
+                        to_play[count++] = start;
+                        to_play[count++] = end-start;
+                      }
+                      if (input[i] == ')') {
+                        //End statement correctly.
+                        i++;
+                      } else {
+                        EL_SERIAL_Print("Missing ')' after specifying sequence length.");
+                      }
+                    } else {
+                      EL_SERIAL_Print("Please enter a valid end number for the sequence.");
+                    }
+                  } else if (input[i++] == ')') {
+                    // (n,a)
+                    to_play[count++] = 0x10 | seq;
+                    to_play[count++] = start;
+                    to_play[count++] = sequence[seq].length;
+                  }
+                }
+              } else if (input[i++] == ')') {
+                // (n)
+                to_play[count++] = 0x10 | seq;
+                to_play[count++] = 0;
+                to_play[count++] = sequence[seq].length;
+              } else {
+                EL_SERIAL_Print("Please enter a valid start number for the sequence.");
+                return;
+              }
+            } else {
+              EL_SERIAL_Print("Please enter a valid sequence number after '('.");
+              return;
+            }
+          } else {
+            EL_SERIAL_Print("Invalid Syntax for sequence section: (s) / (s,a) / (s,a,b)\n\r");
+            return;
+          }
+          break;
+          //if 'n,n)': playseq n from n.
+          //if 'n,n,n)': playseq n from n to n (check if n3 > seq.length)
+        case 'x':
+          if (is_numchar(input[i+1])){
+            int8_t repeat_times = read_seq_val(input, &i);
+            if (repeat_times != -1) {
+              to_play[count++] = 0x20 | repeat_times;
+            } else {
+              EL_SERIAL_Print("Please enter a valid repeat amount: 0-15.");
+            }
+          }
+        default:
+          if (is_numchar(input[i])){
+            int8_t seq = read_seq_val(input, &i);
+            //EL_SERIAL_Print("Read number\n\r");
+            if (seq != -1) {
+              //Add sequence to to_play: start at 0 and play to length.
+              to_play[count++] = 0x10 | seq;
+              to_play[count++] = 0x00;
+              to_play[count++] = sequence[seq].length;
+            } else {
+              EL_SERIAL_Print("Invalid character for sequence number.\n\r");
+              return;
+            }
+            //load_and_play_seq(sequence[seq].colours, 0, sequence[seq].length, 300000);
+          } else if (input[i] == 0) {
+            //End of read
+            goto exec;
+            /*
+            //DEBUG
+            EL_SERIAL_Print("Final output: ");
+            uint8_t j;
+            for (j = 0; j < count; j++){
+              sprintf(output, "0x%02X, ", to_play[j]);
+              EL_SERIAL_Print(output);
+            }
+            sprintf(output, "Length: %d", count);
+            EL_SERIAL_Print(output);
+            return;*/
+          } else {
+            //Unexpected characters, return error.
+            /*
+            //DEBUG
+            sprintf(output, "i: %d", i);
+            EL_SERIAL_Print(output);
+            sprintf(output, "\n\rchar: %d\n\r",input[i]); EL_SERIAL_Print(output);
+            EL_SERIAL_Print("Invalid syntax. Expected ';', ':', '(', sequence number or space characters.\n\r");
+            */
+            return;
+          }
+      }
     }
-    //exec
   }
+
+
+
+  //exec
+  exec:
+  EL_SERIAL_Print("Displaying:\n\r");
+  uint8_t length = count;
+  count = 0;
+  uint8_t sequence_buff[16];
+  uint8_t sequence_buff_length;
+  while(count < length) {
+
+    switch (to_play[count] & 0xF0) {
+      case 0x10: {//sequence (read next two for start and end)
+        uint8_t seq = to_play[count++] & 0x0F;
+        uint8_t start = to_play[count++] & 0x0F;
+        sequence_buff_length = to_play[count++] & 0x0F;
+        uint8_t i;
+        for (i = start; i < length; i++){
+          sequence_buff[i] = sequence[seq].colours[i];
+        }
+        load_and_play_seq(sequence_buff, sequence_buff_length, delay);
+        EL_SERIAL_Print("play sequence, ");
+        break;
+      }
+      case 0x20: {//repeat
+          uint8_t repeat = to_play[count++] & 0x0F;
+          uint8_t i;
+          for (i = 0; i < repeat; i++) {
+            load_and_play_seq(sequence_buff, sequence_buff_length, delay);
+            EL_SERIAL_Print("play sequence, ");
+          }
+          break;
+        }
+      case 0x30: {//transition
+          //set start and end of transition.
+          //start: last colour played
+          uint8_t startcol = sequence_buff[sequence_buff_length];
+          //end: the first colour of the next
+          uint8_t endcol;
+          //check to make sure next is a sequence
+          if ((to_play[count+1] & 0x10) == 0x10) {
+            endcol = sequence[to_play[count+1] & 0x0F].colours[to_play[count+2]];
+          } else {
+            EL_SERIAL_Print("\n\rERROR: Transition must be followed by a sequence number, not a repeat or another transition!\n\r");
+          }
+          sprintf(output, "Transition from %d to %d", startcol, endcol);
+          EL_SERIAL_Print(output);
+          //switch on transition effect.
+          switch (0x0F & to_play[count]) {
+            case 0x00:
+              break;
+            case 0x01:
+              break;
+            case 0x02:
+              break;
+            case 0x03:
+              break;
+          }
+          count++;
+          break;
+        }
+      default:
+        EL_SERIAL_Print("Finished displaying.\n\r");
+    }
+  }
+
+
 }
 void set_default_data(void){
   colour[0][0] = 255;
@@ -362,7 +560,7 @@ void command(uint8_t input[INPUTSIZE]){
         sequence[command_parameters[0]].repeat = command_parameters[1];
         EL_SERIAL_Print("Set repeat.");
       } else {
-        EL_SERIAL_Print("Sequence number out of range 0-16.");
+        EL_SERIAL_Print("Sequence number out of range 0-15.");
       }
     } else {
       EL_SERIAL_Print("\n\rWrong parameter inputs. [repeat s r   :  s->sequence number, r->times to repeat]\n\r");
@@ -377,7 +575,7 @@ void command(uint8_t input[INPUTSIZE]){
         ++(sequence[command_parameters[0]].length);
         EL_SERIAL_Print(output);
       } else {
-        EL_SERIAL_Print("Sequence number out of range 0-16, or colour number out of range 0-9");
+        EL_SERIAL_Print("Sequence number out of range 0-15, or colour number out of range 0-9");
       }
     } else {
       EL_SERIAL_Print("\n\rWrong parameter inputs. [repeat s r   :  s->sequence number, r->times to repeat]\n\r");
@@ -391,7 +589,7 @@ void command(uint8_t input[INPUTSIZE]){
   else if (compare_command(input, "display/")){
     if(get_cmd_input(input,1)){
       if(command_parameters[0] > 16){
-        EL_SERIAL_Print("Sequence number out of range 0-16.");
+        EL_SERIAL_Print("Sequence number out of range 0-15.");
       } else {
         EL_SERIAL_Print("Displaying sequence:");
         display_sequence(command_parameters[0]);
@@ -405,7 +603,7 @@ void command(uint8_t input[INPUTSIZE]){
   else {
     EL_SERIAL_Print("\n\rCommand not recognized. Type \"help\" for a list of commands.\n\r");
   }
-  clear_array(input);
+  clear_array(input, INPUTSIZE);
   EL_SERIAL_Print("\n\r>>");
 }
 
@@ -458,7 +656,7 @@ int main(void) {
   EL_SERIAL_Print("\n");
   EL_SERIAL_Print("ENTER COMMAND. Type \"help\" for guidance.\n\r>>");
   uint8_t in[INPUTSIZE];
-  clear_array(in);
+  clear_array(in, INPUTSIZE);
   uint8_t inc = 0;
   uint8_t byte[2];
   byte[1] = 0;
