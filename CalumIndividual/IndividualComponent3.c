@@ -3,8 +3,6 @@
 
 uint8_t intensity_at_interval[100];
 uint8_t sequence_of_colours[20][3];
-uint8_t piezo_hue;
-uint8_t piezo_intensity;
 
 void IC3_menu(void);
 
@@ -24,9 +22,15 @@ void LCD_clear_lower(void){
 
 void LED_Clear(void){
 	uint8_t i;
-	for (i = 0; i < 512; i++){
-		data[i] = 0;
+	data[0] = 0;
+	data[1] = 0;
+	data[2] = 0;
+	for (i; i < 20; i++){
+		sequence_of_colours[i][0] = 0;
+		sequence_of_colours[i][1] = 0;
+		sequence_of_colours[i][2] = 0;
 	}
+	send_data_UART(1);
 }
 
 int print_usb(char *buf,uint8_t length)
@@ -87,63 +91,7 @@ void ADC_Config_Break_Piezo(void){
   PINSEL_ConfigPin(&pincfg);
 }
 
-void Save_Pattern_Using_IR(void){
-	uint8_t interval;
-	uint8_t key;
-	display_LCD("Create fade out,",0);
-	display_LCD("Max length of 10",16);
-	Delay(2500000);
-	display_LCD("Max length of 10",0);
-	display_LCD("seconds,        ",16);
-	Delay(2500000);
-	display_LCD("seconds,        ",0);
-	display_LCD("                ",16);
-	Delay(2500000);
-	display_LCD("The closer to   ",0);
-	display_LCD("the sensor, the ",16);
-	Delay(2500000);
-	display_LCD("the sensor, the ",0);
-	display_LCD("brighter the    ",16);
-	Delay(2500000);
-	display_LCD("brighter the    ",0);
-	display_LCD("light.          ",0);
-	Delay(2500000);
-	display_LCD("Press left piezo to begin       ",0);
-	Delay(2500000);
-	display_LCD("Press left piezo to end         ",16);
-	Delay(2500000);
-	while(1){
-		if (ADC_ChannelGetData(LPC_ADC, 2) == 0){
-			break;
-		}
-	}
-	for (interval = 0; interval < 100; interval++){
-		if ((ADC_ChannelGetData(LPC_ADC, 1) <= 3750) && (ADC_ChannelGetData(LPC_ADC, 1) > 1200)){
-			intensity_at_interval[interval] = (ADC_ChannelGetData(LPC_ADC, 1) - 1200) * 0.1;
-		} else if (ADC_ChannelGetData(LPC_ADC, 1) > 3750){
-			intensity_at_interval[interval] = 255;
-		} else if (ADC_ChannelGetData(LPC_ADC, 1) <= 1200){
-			intensity_at_interval[interval] = 0;
-		}
-		SEGMENT_WriteHidden(intensity_at_interval[interval],5,1);
-		if (ADC_ChannelGetData(LPC_ADC, 2) == 0){
-			break;
-		}
-		Delay(100000);
-	}
-	display_LCD("Pattern saved      ",0);
-	display_LCD("                   ",16);
-	//=====================IMPLEMENT AFTER FINAL STATE============================
-	for (interval = 0; interval < 100; interval++){
-		data[0] = (data[0] / 255) * intensity_at_interval[interval];
-		data[1] = (data[1] / 255) * intensity_at_interval[interval];
-		data[2] = (data[2] / 255) * intensity_at_interval[interval];
-		send_data_UART(1);
-		Delay(100000);
-	}
-}
-
-void Get_Intensity_From_Piezo(void){
+uint8_t Get_Intensity_From_Piezo(void){
 	uint8_t seg_val = 0;
 	char out[16];
 	display_LCD("Select intensity",0);
@@ -164,16 +112,16 @@ void Get_Intensity_From_Piezo(void){
 			SEGMENT_WriteHidden(seg_val,5,1);
 			Delay(100000);
 		}
-		sprintf(out, "L:%d R:%d\n\r", ADC_ChannelGetData(LPC_ADC, 0), ADC_ChannelGetData(LPC_ADC, 2));
-		print_usb(out, 15);
+		// sprintf(out, "L:%d R:%d\n\r", ADC_ChannelGetData(LPC_ADC, 0), ADC_ChannelGetData(LPC_ADC, 2));
+		// print_usb(out, 15);
 		if (ADC_ChannelGetData(LPC_ADC, 2) == 0){
 			break;
 		}
 	}
-	piezo_intensity = seg_val;
+	return seg_val;
 }
 
-void Get_Hue_From_Piezo(void){
+uint8_t Get_Hue_From_Piezo(void){
 	char out[16];
 	uint8_t seg_val = 0;
 	char* col;
@@ -194,35 +142,36 @@ void Get_Hue_From_Piezo(void){
 			}
 			Delay(100000);
 		}
-		sprintf(out, "L:%d R:%d\n\r", ADC_ChannelGetData(LPC_ADC, 0), ADC_ChannelGetData(LPC_ADC, 2));
-		print_usb(out, 15);
+		// sprintf(out, "L:%d R:%d\n\r", ADC_ChannelGetData(LPC_ADC, 0), ADC_ChannelGetData(LPC_ADC, 2));
+		// print_usb(out, 15);
 		SEGMENT_WriteHidden(seg_val,5,1);
 		if (ADC_ChannelGetData(LPC_ADC, 2) == 0){
 			break;
 		}
-		Delay(100000);
 	}
-	if (seg_val == 1){
+	if (seg_val == 0){
 		col = "Red";
-	} else if (seg_val == 2){
+	} else if (seg_val == 1){
 		col = "Green";
-	} else if (seg_val == 3){
+	} else {
 		col = "Blue";
 	}
 	display_LCD("Hue =                           ",0);
 	display_LCD(col, 6);
-	Delay(1000000);
-	piezo_hue = (seg_val - 1);
+	return (seg_val-1);
 }
 
 uint8_t Get_Intensity_From_IR(void){
 	uint8_t seg_val = 0;
+	char out[12];
 	display_LCD("Select intensity",0);
 	display_LCD("Range: 0 to 255 ",16);
 	Delay(2500000);
 	display_LCD("Press left piezo",0);
 	display_LCD("to select value ",16);
 	while(1){
+		// sprintf(out, "IR : %.3f\n\r", ADC_ChannelGetData(LPC_ADC, 1));
+		// print_usb(out, 12);
 		if ((ADC_ChannelGetData(LPC_ADC, 1) <= 3750) && (ADC_ChannelGetData(LPC_ADC, 1) > 1200)){
 			seg_val = (ADC_ChannelGetData(LPC_ADC, 1) - 1200) * 0.1;
 		} else if (ADC_ChannelGetData(LPC_ADC, 1) > 3750){
@@ -286,9 +235,9 @@ void Set_Colour_Via_IR(void){
 }
 
 void Set_Colour_Via_Piezo(void){
-	Get_Hue_From_Piezo();
-	Get_Intensity_From_Piezo();
-	data[piezo_hue] = piezo_intensity;
+	uint8_t hue = Get_Hue_From_Piezo();
+	uint8_t intensity = Get_Intensity_From_Piezo();
+	data[hue] = intensity;
 	send_data_UART(1);
 }
 
@@ -340,11 +289,9 @@ void Define_Sequence(uint8_t Piezo_OR_IR){ // 0 or 1 resp.
 			return;
 		}
 		if (Piezo_OR_IR == 0){
-			Get_Hue_From_Piezo();
-			hue = piezo_hue;
+			hue = Get_Hue_From_Piezo();
 			SEGMENT_WriteHidden(0,5,1);
-			Get_Intensity_From_Piezo();
-			intensity = piezo_intensity;
+			intensity = Get_Intensity_From_Piezo();
 			SEGMENT_WriteHidden(0,5,1);
 		} else {
 			hue = Get_Hue_From_IR();
@@ -361,10 +308,13 @@ void Define_Sequence(uint8_t Piezo_OR_IR){ // 0 or 1 resp.
 
 void IC3_Display_Sequence(void){
 	uint8_t i;
-	for (i = 0; i < 512; i + 3){
-		data[0] = data[i];
-		data[1] = data[i+1];
-		data[2] = data[i+2];
+	char out[32];
+	for (i = 0; i < 64; i++){
+		sprintf(out,"State %.3d R:%.3d,G:%.3d, B:%.3d    ", i, sequence_of_colours[i][0],	sequence_of_colours[i][1], sequence_of_colours[i][2]);
+		display_LCD(out,0);
+		data[0] = sequence_of_colours[i][0];
+		data[1] = sequence_of_colours[i][1];
+		data[2] = sequence_of_colours[i][2];
 		send_data_UART(1);
 		Delay(750000);
 	}
@@ -406,7 +356,7 @@ void IC3_menu(void){
 			return,
 			return,
 			Define_Sequence(1); reset = 1,
-			return,
+			IC3_Display_Sequence(); reset = 1,
 			return,
 			LED_Clear(); reset = 1,
 			Define_Sequence(0); reset = 1
