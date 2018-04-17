@@ -4,6 +4,18 @@
 uint8_t intensity_at_interval[100];
 uint8_t sequence_of_colours[20][3];
 
+/*Procedures/Functions used from group work
+	void display_LCD(int8_t string[], uint8_t LCD_address);
+	void send_data_UART(int wait);
+	void SEGMENT_WriteHidden(int value, uint8_t dp_digit, int leading);
+	void Delay (unsigned long tick);
+	menu(com1, com2, com3, com4, com5, \
+	  com6, com7, com8, com9, com10, com11,\
+	  com12, com13, com14, com15, com16);
+  uint8_t read_keypress(void);
+	uint8_t input_translate(uint8_t number_input[3], uint8_t in_count);
+*/
+
 void IC3_menu(void);
 
 void LCD_clear_lower(void){
@@ -103,6 +115,8 @@ uint8_t Get_Intensity_From_Piezo(void){
 	display_LCD("Press left piezo",0);
 	display_LCD("to select value ",16);
 	while(1){
+		sprintf(out, "%d\n\r", ADC_ChannelGetData(LPC_ADC, 0));
+		print(out);
 		if (ADC_ChannelGetData(LPC_ADC, 0) < 1000){
 			if (seg_val == 255) {
 				seg_val = 0;
@@ -134,6 +148,8 @@ uint8_t Get_Hue_From_Piezo(void){
 	display_LCD("Press left piezo",0);
 	display_LCD("to select colour",16);
 	while(1){
+		sprintf(out, "%d\n\r", ADC_ChannelGetData(LPC_ADC, 0));
+		print(out);
 		if (ADC_ChannelGetData(LPC_ADC, 0) < 1000){
 			if (seg_val == 3) {
 				seg_val = 1;

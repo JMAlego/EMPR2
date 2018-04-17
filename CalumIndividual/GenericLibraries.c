@@ -1,6 +1,3 @@
-//How to use github (Jacob ignore this pls_)
-//git pull; git add . ; git commit -m "message" ; git push
-
 #include <lpc17xx_gpio.h>
 #include "lpc17xx_uart.h"
 #include "lpc17xx_pinsel.h"
@@ -26,22 +23,6 @@
   } while(0)
 
 #define _cb(no,com) case no: {com;break;}
-
-uint8_t input_translate(uint8_t number_input[3], uint8_t in_count){
-  uint16_t output = 0;
-  if(in_count == 0){
-    output = 0;
-  } else if (in_count == 1){
-    output = number_input[0];
-  } else if (in_count == 2){
-    output = (number_input[0] * 10) + number_input[1];
-  } else if (in_count == 3){
-    output = (number_input[0] * 100) + (number_input[1] * 10) + number_input[2];
-  }
-  if (output > 255) output = 255;
-
-  return (uint8_t) output;
-}
 
 #define SENDING 0x40040
 #define RECEIVING 0x20000
@@ -157,8 +138,21 @@ void outputLCDbuff(void);
 uint8_t stringToLCD(uint8_t buff[], uint8_t out_buff[]);
 uint8_t read_keypress(void);
 
+uint8_t input_translate(uint8_t number_input[3], uint8_t in_count){
+  uint16_t output = 0;
+  if(in_count == 0){
+    output = 0;
+  } else if (in_count == 1){
+    output = number_input[0];
+  } else if (in_count == 2){
+    output = (number_input[0] * 10) + number_input[1];
+  } else if (in_count == 3){
+    output = (number_input[0] * 100) + (number_input[1] * 10) + number_input[2];
+  }
+  if (output > 255) output = 255;
 
-
+  return (uint8_t) output;
+}
 
 void print(uint8_t string[]){
   UART_Send(LPC_UART0, (uint8_t *) string, EL_SERIAL_SizeOfString((uint8_t *) string), BLOCKING);
